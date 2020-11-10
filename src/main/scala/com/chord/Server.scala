@@ -63,9 +63,8 @@ object Server {
           context.log.info(s"${context.self.path} : my hash is $hashValue")
 
           message match {
-            case Parent.Join(siblingRef) =>
-
-              if (siblingRef == context.self) {
+            case Parent.Join(successorNodeRef, predecessorNodeRef) =>
+              if (successorNodeRef == context.self) {
                 /*
                  * This is the first node to join the ring
                  */
@@ -75,7 +74,7 @@ object Server {
                   newSlotToHash += (i -> hashValue)
                   newHashToRef += (hashValue -> context.self)
                 })
-                process(m, newSlotToHash, newHashToRef, successor, predecessor)
+                process(m, newSlotToHash, newHashToRef, successor, predecessorNodeRef)
               }
 
               else {
@@ -88,17 +87,23 @@ object Server {
                 val newHashToRef = mutable.Map[Int, ActorRef[Server.Command]]()
                 var newPredecessor: ActorRef[Server.Command] = null
 
-                context.ask(siblingRef, GetActorState) {
+                context.ask(successorNodeRef, GetActorState) {
                   case x @ Success(ActorStateResponse(successorSlotToHash, successorHashToRef, successorHashValue, successorPredecessor)) =>
+                    context.log.info(s"${context.self.path} : Hash value = $hashValue : Starting to initialize finger table...")
+
                     newSlotToHash += (0 -> successorHashValue)
-                    newHashToRef += (successorHashValue -> siblingRef)
+                    newHashToRef += (successorHashValue -> successorNodeRef)
                     newPredecessor = successorPredecessor
+
+                    context.log.info(s"New predecessor found is $newPredecessor")
+                    context.log.info(s"(i = 0) => (actorNode = $successorNodeRef\t;\thash = $successorHashValue)")
 
                     /*
                      * Fill in the new node's finger table using already existing successor's finger table
                      */
                     (1 until m).foreach(i => {
                       if (((hashValue + Math.pow(2, i)) % Math.pow(2, m)) <= newSlotToHash(0)) {
+                        context.log.info(s"($hashValue + 2 ^ $i) % (2 ^ $m) = ${(hashValue + Math.pow(2, i)) % Math.pow(2, m)} <= ${newSlotToHash(0)}")
                         newSlotToHash += (i -> newSlotToHash(0))
                         newHashToRef += (newSlotToHash(i) -> newHashToRef(newSlotToHash(i)))
                       }
@@ -107,13 +112,15 @@ object Server {
                         newSlotToHash += (i -> successorSlotToHash(i-1))
                         newHashToRef += (newSlotToHash(i) -> successorHashToRef(newSlotToHash(i)))
                       }
+                      context.log.info(s"(i = $i) => (actorNode = ${successorHashToRef(newSlotToHash(i))}\t;\thash = ${newSlotToHash(i)})")
                     })
+                    context.log.info(s"${context.self.path}\t:\thash = $hashValue\t:\tFinished initializing finger table.")
                     context.log.info(s"Initialized finger tables: \nslotToHash - $newSlotToHash\nhashToRef - $newHashToRef")
                     x.value
                   case Failure(_) => ActorStateResponseError
                 }
 
-                process(m, newSlotToHash, newHashToRef, siblingRef, newPredecessor)
+                process(m, newSlotToHash, newHashToRef, successorNodeRef, newPredecessor)
               }
 
             case GetFingerTable(replyTo) =>
