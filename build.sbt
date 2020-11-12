@@ -11,5 +11,7 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-http-spray-json" % akkaHttpVersion,
   "com.typesafe.akka" %% "akka-cluster-typed" % akkaVersion,
   "com.typesafe.akka" %% "akka-serialization-jackson" % akkaVersion,
-  "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion
+  "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion,
+  "com.google.guava" % "guava-primitives" % "r03",
+  "com.google.guava" % "guava" % "30.0-jre"
 )

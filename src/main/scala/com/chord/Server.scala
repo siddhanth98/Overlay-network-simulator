@@ -41,6 +41,7 @@ object Server {
   final case class GetPredecessor(replyTo: ActorRef[PredecessorResponse]) extends Command
   final case class PredecessorResponse(predecessor: ActorRef[Server.Command]) extends Command
   final case object PredecessorResponseError extends Command
+  final case class SetPredecessor(predecessor: ActorRef[Command]) extends Command
 
   /**
    * Set of messages for querying and obtaining all relevant state properties from another server node
@@ -77,6 +78,8 @@ object Server {
                                   newNodeRef: ActorRef[Command]) extends Command
   final case class NewSuccessorResponse(i: Int, successor: ActorRef[Command], successorHashValue: Int) extends Command
   final case object NewSuccessorResponseError extends Command
+  final case class UpdateFingerTableAndSuccessor(newSuccessor: ActorRef[Command], newSlotToHash: mutable.Map[Int, Int],
+                                                 newHashToRef: mutable.Map[Int, ActorRef[Command]]) extends Command
 
   /**
    * Set of messages to update finger tables of new node's predecessors
@@ -92,12 +95,10 @@ object Server {
             successor: ActorRef[Server.Command], predecessor: ActorRef[Server.Command]): Behavior[Command] = {
 
       def process(m: Int, slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Server.Command]],
-                  successor: ActorRef[Server.Command], predecessor: ActorRef[Server.Command]): Behavior[Command] =
+                  successor: ActorRef[Server.Command], predecessor: ActorRef[Server.Command]): Behavior[Command] = {
         Behaviors.receive((context, message) => {
-          val hashValue = ringValue(m, ByteBuffer.wrap(md5(context.self.toString)).getInt)
-
-          context.log.info(s"${context.self.path} : my name is ${context.self.toString}")
-          context.log.info(s"${context.self.path} : my hash is $hashValue")
+          val hashValue = ringValue(m, ByteBuffer.wrap(md5(context.self.path.toString)).getInt) % Math.pow(2, m).round.toInt
+          context.log.info(s"${context.self.path}\t:\trestarted behavior\t-\thashValue=$hashValue\tsuccessor=$successor\tpredecessor=$predecessor")
 
           message match {
             case Parent.Join(successorNodeRef, predecessorNodeRef) =>
@@ -105,13 +106,15 @@ object Server {
                 /*
                  * This is the first node to join the ring
                  */
+                context.log.info(s"${context.self.path}\t:\tI am the first node to join the ring")
                 val newSlotToHash = mutable.Map[Int, Int]()
                 val newHashToRef = mutable.Map[Int, ActorRef[Server.Command]]()
                 (0 until m).foreach(i => {
                   newSlotToHash += (i -> hashValue)
                   newHashToRef += (hashValue -> context.self)
                 })
-                process(m, newSlotToHash, newHashToRef, successor, predecessorNodeRef)
+                context.log.info(s"${context.self.path}\t:\tInitialized finger tables\t:\tslotToHash = $newSlotToHash\thashToRef = $newHashToRef")
+                process(m, newSlotToHash, newHashToRef, successorNodeRef, predecessorNodeRef)
               }
 
               else {
@@ -119,6 +122,8 @@ object Server {
                  * There is at least 1 other node already in the ring
                  * Get the successor's finger table and use it to initialize new node's finger table
                  */
+                context.log.info(s"${context.self.path}\t:\tI am not the first node to join the ring")
+                context.log.info(s"${context.self.path}\t:\tAsking successor node $successorNodeRef for its state...")
                 implicit val timeout: Timeout = 5.seconds
                 val newSlotToHash = mutable.Map[Int, Int]()
                 val newHashToRef = mutable.Map[Int, ActorRef[Server.Command]]()
@@ -132,9 +137,12 @@ object Server {
                     newHashToRef += (successorHashValue -> successorNodeRef)
                     newPredecessor = successorPredecessor
 
-                    context.log.info(s"New predecessor found is $newPredecessor")
-                    context.log.info(s"(i = 0) => (fingerNode = $successorNodeRef\t;\thash = $successorHashValue)")
-                    successor ! FindSuccessor(1, ((hashValue + Math.pow(2, 1)) % Math.pow(2, m)).toInt, successor, context.self)
+                    context.log.info(s"${context.self.path}\t:\tNew predecessor found is $newPredecessor")
+                    context.log.info(s"${context.self.path}\t:\tletting successor node $successorNodeRef know that I am its new predecessor")
+                    successorNodeRef ! SetPredecessor(context.self)
+
+                    context.log.info(s"${context.self.path}\t:\t(i = 0) => (fingerNode = $successorNodeRef\t;\thash = $successorHashValue)")
+                    successorNodeRef ! FindSuccessor(1, ((hashValue + Math.pow(2, 1).round) % Math.pow(2, m)).toInt, successorNodeRef, context.self)
 
                     /*
                      * Fill in the new node's finger table using already existing successor's finger table
@@ -163,7 +171,7 @@ object Server {
                   case Failure(_) => ActorStateResponseError
                 }
 
-                process(m, newSlotToHash, newHashToRef, successorNodeRef, newPredecessor)
+                process(m, newSlotToHash, newHashToRef, successorNodeRef, predecessorNodeRef)
               }
 
             case GetFingerTable(replyTo) =>
@@ -201,6 +209,19 @@ object Server {
               context.log.info(s"${context.self.path} : got this predecessor value - $predecessor")
               Behaviors.same
 
+            case SetPredecessor(newPredecessor) =>
+              context.log.info(s"${context.self.path}\t:\tgot $newPredecessor as my new predecessor. Resetting $predecessor to $newPredecessor")
+              process(m, slotToHash, hashToRef, successor, newPredecessor)
+
+            case UpdateFingerTableAndSuccessor(newSuccessor, newSlotToHash, newHashToRef) =>
+              context.log.info(s"${context.self.path}\t:\tgot new finger tables\t-\tslotToHash = $newSlotToHash\t;\thashToRef = $newHashToRef")
+              newSuccessor match {
+                case null => process(m, newSlotToHash, newHashToRef, successor, predecessor)
+                case _ =>
+                  context.log.info(s"${context.self.path}\t:\tgot $newSuccessor as my new successor. Resetting successor $successor to $newSuccessor")
+                  process(m, newSlotToHash, newHashToRef, newSuccessor, predecessor)
+              }
+
             case GetActorState(replyTo) =>
               context.log.info(s"${context.self.path} : got request for actor state - $replyTo")
               replyTo ! ActorStateResponse(slotToHash, hashToRef, hashValue, predecessor)
@@ -218,7 +239,7 @@ object Server {
               implicit val timeout: Timeout = 5.seconds
               context.ask(successor, GetHashValue) {
                 case x @ Success(HashResponse(successorHashValue)) =>
-                  findSuccessorToFindData(id, srcRouteRef, hashValue, successorHashValue, context)
+                  findSuccessorToFindData(id, srcRouteRef, hashValue, successorHashValue, context, slotToHash, hashToRef)
                   x.value
                 case Failure(_) => HashResponseError
               }
@@ -228,7 +249,7 @@ object Server {
               implicit val timeout: Timeout = 5.seconds
               context.ask(successor, GetHashValue) {
                 case x @ Success(HashResponse(successorHashValue)) =>
-                  findPredecessorToFindData(id, replyTo, srcRouteRef, hashValue, successorHashValue, context)
+                  findPredecessorToFindData(id, replyTo, srcRouteRef, hashValue, successorHashValue, context, slotToHash, hashToRef)
                   x.value
                 case Failure(_) => HashResponseError
               }
@@ -247,121 +268,188 @@ object Server {
               Behaviors.same
 
             case FindSuccessor(i, id, replyTo, newNodeRef) =>
-              implicit val timeout: Timeout = 5.seconds
-              context.ask(successor, GetHashValue) {
-                case x @ Success(HashResponse(successorHashValue)) =>
-                  findSuccessor(i, id, replyTo, newNodeRef, hashValue, successorHashValue, context)
-                  x.value
-                case Failure(_) => HashResponseError
+              context.log.info(s"${context.self.path}\t:\tGot request to find finger successor of node with hash $id for $newNodeRef")
+              if (successor != context.self) {
+                context.log.info(s"${context.self.path}\t:\tasking my successor node $successor for its hash value")
+                implicit val timeout: Timeout = 5.seconds
+                context.ask(successor, GetHashValue) {
+                  case x@Success(HashResponse(successorHashValue)) =>
+                    findSuccessor(i, id, replyTo, newNodeRef, hashValue, successorHashValue, context, slotToHash, hashToRef)
+                    x.value
+                  case Failure(_) => HashResponseError
+                }
+              }
+              else {
+                implicit val timeout: Timeout = 5.seconds
+                context.log.info(s"${context.self.path}\t:\tI am my own successor")
+                if (id > hashValue) {
+                  context.log.info(s"${context.self.path}\t:\tSuccessor of key $id is $newNodeRef itself")
+                  context.ask(newNodeRef, GetHashValue) {
+                    case x @ Success(HashResponse(newNodeHashValue)) =>
+                      replyTo ! SuccessorFound(i, id, newNodeRef, newNodeHashValue, newNodeRef)
+                      x.value
+                    case Failure(_) => HashResponseError
+                  }
+                }
               }
               Behaviors.same
 
             case FindPredecessor(i, id, replyTo, newNodeRef) =>
-              implicit val timeout: Timeout = 5.seconds
-              context.ask(successor, GetHashValue) {
-                case x @ Success(HashResponse(successorHashValue)) =>
-                  findPredecessor(i, id, replyTo, newNodeRef, hashValue, successorHashValue, context)
-                  x.value
-                case Failure(_) => HashResponseError
+              if (successor != context.self) {
+                context.log.info(s"${context.self.path}\t:\tgot request to find successor of key $id for $newNodeRef")
+                context.log.info(s"${context.self.path}\t:\tasking my successor node $successor for its hash value")
+                implicit val timeout: Timeout = 5.seconds
+                context.ask(successor, GetHashValue) {
+                  case x@Success(HashResponse(successorHashValue)) =>
+                    findPredecessor(i, id, replyTo, newNodeRef, hashValue, successorHashValue, context, slotToHash, hashToRef)
+                    x.value
+                  case Failure(_) => HashResponseError
+                }
+              }
+              else {
+                implicit val timeout: Timeout = 5.seconds
+                context.log.info(s"${context.self.path}\t:\tI am my own successor")
+                if (id > hashValue) {
+                  context.log.info(s"${context.self.path}\t:\tSuccessor of key $id is $newNodeRef itself")
+                  context.ask(newNodeRef, GetHashValue) {
+                    case x @ Success(HashResponse(newNodeHashValue)) =>
+                      replyTo ! SuccessorFound(i, id, newNodeRef, newNodeHashValue, newNodeRef)
+                      x.value
+                    case Failure(_) => HashResponseError
+                  }
+                }
               }
               Behaviors.same
 
             case SuccessorFound(i, id, successor, successorHashValue, newNodeRef) =>
-              context.log.info(s"${context.self.path} : node $successor found as finger ${i+1} for $newNodeRef")
+              context.log.info(s"${context.self.path} : node $successor with hash $successorHashValue found as " +
+                s"successor of key $id for $newNodeRef")
               newNodeRef ! NewSuccessorResponse(i, successor, successorHashValue)
               Behaviors.same
 
             case NewSuccessorResponse(i, newSuccessor, newSuccessorHashValue) =>
-              context.log.info(s"${context.self.path}\t:\t(i = $i) => fingerNode = $newSuccessor\thash = $newSuccessorHashValue")
-              if (i <= m) {
-                successor ! FindSuccessor(i+1, ((hashValue+Math.pow(2, i+1)) % Math.pow(2, m)).toInt, successor, context.self)
-                process(m, slotToHash+(i->newSuccessorHashValue), hashToRef+(i->newSuccessor), successor, predecessor)
+              if (i < m) {
+                context.log.info(s"${context.self.path}\t:\t(i = $i) => (fingerNode = $newSuccessor\t;\thash = $newSuccessorHashValue)")
+                successor ! FindSuccessor(i+1, ((hashValue+Math.pow(2, i+1).round) % Math.pow(2, m)).toInt, successor, context.self)
+                process(m, slotToHash+(i->newSuccessorHashValue), hashToRef+(newSuccessorHashValue->newSuccessor), successor, predecessor)
               }
               else {
-                findPredecessorToUpdate(1, hashValue-Math.pow(2, 1).toInt, context.self, hashValue, slotToHash(0), context)
+                context.log.info(s"${context.self.path}\t:\tInitialized finger tables: \nslotToHash - $slotToHash\nhashToRef - $hashToRef")
+                context.log.info(s"${context.self.path}\t:\tFinding my predecessor 1 to update")
+                findPredecessorToUpdate(0, (hashValue-Math.pow(2, 0).round).toInt, context.self, hashValue, slotToHash(0),
+                  context, slotToHash, hashToRef)
                 Behaviors.same
               }
 
             case NewSuccessorResponseError => Behaviors.same
 
             case UpdateFingerTable(newNode, newNodeHashValue, i) =>
-              updateFingerTable(newNode, newNodeHashValue, i, hashValue, slotToHash(0))
+              context.log.info(s"${context.self.path}\t:\tGot request to update finger $i in my finger table if required")
+              updateFingerTable(newNode, newNodeHashValue, i, hashValue, slotToHash(0), context, slotToHash, hashToRef, predecessor)
               Behaviors.same
 
             case FindPredecessorToUpdate(i, id, replyTo) =>
-              findPredecessorToUpdate(i, id, replyTo, hashValue, slotToHash(0), context)
+              context.log.info(s"${context.self.path}\t:\tGot request to find successor of key $id")
+              findPredecessorToUpdate(i, id, replyTo, hashValue, slotToHash(0), context, slotToHash, hashToRef)
               Behaviors.same
 
             case PredecessorUpdateResponse(i, predecessor, predecessorHashValue) =>
+              context.log.info(s"${context.self.path}\t:\tGot predecessor $i as node $predecessor with hash $predecessorHashValue")
+              context.log.info(s"${context.self.path}\t:\tSending update finger table message to predecessor $predecessor")
               predecessor ! UpdateFingerTable(context.self, hashValue, i)
-              predecessor ! FindPredecessorToUpdate(i+1, hashValue-Math.pow(2, i+1).toInt, context.self)
+
+              if (i < (m-1)) {
+                context.log.info(s"${context.self.path}\t:\tFinding predecessor ${i + 1} to update")
+                findPredecessorToUpdate(i + 1, (hashValue - Math.pow(2, i + 1).round).toInt, context.self, hashValue, slotToHash(0),
+                  context, slotToHash, hashToRef)
+              }
               Behaviors.same
           }
         })
+      }
 
     def findSuccessorToFindData(id: Int, srcRouteRef: ActorRef[DataActionResponse], hashValue: Int, successorHashValue: Int,
-                      context: ActorContext[Command]): Behavior[Command] =
-      findPredecessorToFindData(id, context.self, srcRouteRef, hashValue, successorHashValue, context)
+                      context: ActorContext[Command], slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Command]]): Behavior[Command] =
+      findPredecessorToFindData(id, context.self, srcRouteRef, hashValue, successorHashValue, context, slotToHash, hashToRef)
 
     def findPredecessorToFindData(id: Int, replyTo: ActorRef[Command], srcRouteRef: ActorRef[DataActionResponse],
-                       hashValue: Int, successorHashValue: Int, context: ActorContext[Command]): Behavior[Command] = {
-      if (!isInLeftOpenInterval(id, hashValue, successorHashValue) && successor == replyTo)
+                       hashValue: Int, successorHashValue: Int, context: ActorContext[Command],
+                                  slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Command]]): Behavior[Command] = {
+      if (!isInLeftOpenInterval(id, hashValue, successorHashValue) && hashToRef(slotToHash(0)) == replyTo)
         replyTo ! SuccessorNotFound(id, srcRouteRef)
       else if (!isInLeftOpenInterval(id, hashValue, successorHashValue)) {
-        val closestPrecedingNodeRef = findClosestPrecedingFinger(id, hashValue, context)
+        val closestPrecedingNodeRef = findClosestPrecedingFinger(id, hashValue, context, slotToHash, hashToRef)
         closestPrecedingNodeRef ! FindPredecessorToFindData(id, replyTo, srcRouteRef)
       }
-      else replyTo ! SuccessorFoundForData(id, successor, srcRouteRef)
+      else replyTo ! SuccessorFoundForData(id, hashToRef(slotToHash(0)), srcRouteRef)
       Behaviors.same
     }
 
-    def findClosestPrecedingFinger(id: Int, hashValue: Int, context: ActorContext[Command]): ActorRef[Command] = {
-      ((m-1) to 0 by -1).foreach(i =>
-        if ((slotToHash(i) % Math.pow(2, m)) > hashValue && (slotToHash(i) % Math.pow(2, m)) < id) return hashToRef(slotToHash(i)))
+    def findClosestPrecedingFinger(id: Int, hashValue: Int, context: ActorContext[Command], slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Command]]): ActorRef[Command] = {
+      ((m-1) to 0 by -1).foreach(i => {
+        /*if (slotToHash.contains(i) && (slotToHash(i) % Math.pow(2, m).round) > hashValue && (slotToHash(i) % Math.pow(2, m).round) < id) return hashToRef(slotToHash(i)))*/
+        if (slotToHash.contains(i) && (slotToHash(i) < id)) return hashToRef(slotToHash(i))
+      })
       context.self
     }
 
 
     def findSuccessor(i: Int, id: Int, replyTo: ActorRef[Command], newNodeRef: ActorRef[Command], hashValue: Int, successorHashValue: Int,
-                      context: ActorContext[Command]): Behavior[Command] =
-      findPredecessor(i: Int, id, replyTo, newNodeRef, hashValue, successorHashValue, context)
+                      context: ActorContext[Command], slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Command]]): Behavior[Command] =
+      findPredecessor(i: Int, id, replyTo, newNodeRef, hashValue, successorHashValue, context, slotToHash, hashToRef)
 
     def findPredecessor(i: Int, id: Int, replyTo: ActorRef[Command], newNodeRef: ActorRef[Command], hashValue: Int, successorHashValue: Int,
-                        context: ActorContext[Command]): Behavior[Command] = {
+                        context: ActorContext[Command], slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Command]]): Behavior[Command] = {
       context.log.info(s"${context.self.path}\t:\tid = $id\thash = $hashValue\tsuccessorHash=$successorHashValue")
-      if (!isInLeftOpenInterval(id, hashValue, successorHashValue) && successor == replyTo) {
+      if (!isInLeftOpenInterval(id, hashValue, successorHashValue) && hashToRef(slotToHash(0)) == replyTo) {
         context.log.info(s"${context.self.path}\t:\t$successorHashValue is the successor node key for key $id")
-        replyTo ! SuccessorFound(i, id, successor, successorHashValue, newNodeRef)
+        replyTo ! SuccessorFound(i, id, hashToRef(slotToHash(0)), successorHashValue, newNodeRef)
       }
       else if (!isInLeftOpenInterval(id, hashValue, successorHashValue)) {
-        val closestPrecedingNodeRef = findClosestPrecedingFinger(id, hashValue, context)
-        context.log.info(s"${context.self.path}\t:\t sending search for $id to node $closestPrecedingNodeRef")
+        val closestPrecedingNodeRef = findClosestPrecedingFinger(id, hashValue, context, slotToHash, hashToRef)
+        context.log.info(s"${context.self.path}\t:\t sending search for key $id to node $closestPrecedingNodeRef")
         closestPrecedingNodeRef ! FindPredecessor(i, id, replyTo, newNodeRef)
       }
 
       else {
         context.log.info(s"${context.self.path}\t:\tfound successor node with key $successorHashValue for key $id")
-        replyTo ! SuccessorFound(i, id, successor, successorHashValue, newNodeRef)
+        replyTo ! SuccessorFound(i, id, hashToRef(slotToHash(0)), successorHashValue, newNodeRef)
       }
       Behaviors.same
     }
 
     def findPredecessorToUpdate(i: Int, id: Int, replyTo: ActorRef[Command], hashValue: Int, successorHashValue: Int,
-                               context: ActorContext[Command]): Behavior[Command] = {
-      if (isInLeftOpenInterval(id, hashValue, successorHashValue))
-        replyTo ! PredecessorUpdateResponse(i, successor, successorHashValue)
-      else {
-        val closestPrecedingNodeRef = findClosestPrecedingFinger(id, hashValue, context)
-        closestPrecedingNodeRef ! FindPredecessorToUpdate(i, id, replyTo)
+                               context: ActorContext[Command], slotToHash: mutable.Map[Int, Int],
+                                hashToRef: mutable.Map[Int, ActorRef[Command]]): Behavior[Command] = {
+      context.log.info(s"${context.self.path}\t:\tfinding successor of key $id")
+      if (isInLeftOpenInterval(id, hashValue, successorHashValue)) {
+        context.log.info(s"${context.self.path}\t:\tsuccessor of key $id found in left open interval ($hashValue, $successorHashValue]")
+        replyTo ! PredecessorUpdateResponse(i, hashToRef(slotToHash(0)), successorHashValue)
+      } else {
+        val closestPrecedingNodeRef = findClosestPrecedingFinger(id, hashValue, context, slotToHash, hashToRef)
+
+        if (closestPrecedingNodeRef == context.self) {
+          context.log.info(s"${context.self.path}\t:\tclosest preceding node to key $id is myself. " +
+            s"Sending ${hashToRef(slotToHash(0))} as the predecessor found")
+          replyTo ! PredecessorUpdateResponse(i, hashToRef(slotToHash(0)), successorHashValue)
+        }
+        else {
+          context.log.info(s"${context.self.path}\t:\tcould not find successor of key $id. Sending search to $closestPrecedingNodeRef")
+          closestPrecedingNodeRef ! FindPredecessorToUpdate(i, id, replyTo)
+        }
       }
       Behaviors.same
     }
 
-    def updateFingerTable(newNode: ActorRef[Command], hashValue: Int, i: Int, predecessorHashValue: Int,
-                          predecessorSuccessorHashValue: Int): Unit = {
-      if (isInRightOpenInterval(hashValue, predecessorHashValue, predecessorSuccessorHashValue)) {
-        hashToRef += (slotToHash(i) -> newNode)
-        predecessor ! UpdateFingerTable(newNode, hashValue, i)
+    def updateFingerTable(newNode: ActorRef[Command], newNodeHashValue: Int, i: Int, predecessorHashValue: Int,
+                          predecessorSuccessorHashValue: Int, context: ActorContext[Command],
+                          slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Command]],
+                         predecessor: ActorRef[Command]): Unit = {
+      if (isInRightOpenInterval(newNodeHashValue, predecessorHashValue, slotToHash(i))) {
+        context.log.info(s"${context.self.path}\t:\tUpdating finger $i in my finger table")
+        if (i == 0) context.self ! UpdateFingerTableAndSuccessor(newNode, slotToHash+(i -> newNodeHashValue), hashToRef+(newNodeHashValue -> newNode))
+        else context.self ! UpdateFingerTableAndSuccessor(null, slotToHash+(i -> newNodeHashValue), hashToRef+(newNodeHashValue -> newNode))
+        predecessor ! UpdateFingerTable(newNode, newNodeHashValue, i)
       }
     }
 
