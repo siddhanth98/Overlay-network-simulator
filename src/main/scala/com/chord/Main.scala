@@ -6,7 +6,7 @@ import scala.collection.mutable
 
 object Main {
   def main(args: Array[String]): Unit = {
-    val system = ActorSystem(Parent(3, mutable.Map[Int, ActorRef[Server.Command]]()), "ChordActorSystem")
+    val system = ActorSystem(Parent(4, mutable.Map[Int, ActorRef[Server.Command]]()), "ChordActorSystem")
 //    system.terminate()
   }
 }

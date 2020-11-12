@@ -11,6 +11,7 @@ import scala.util.{Failure, Success}
 import java.security.MessageDigest
 
 import scala.collection.mutable
+import scala.math.BigInt.javaBigInteger2bigInt
 
 object Server {
   /*val finger = new Array[ActorRef[Server.Command]](3)
@@ -90,6 +91,7 @@ object Server {
   final case object PredecessorUpdateResponseError extends Command
 
   def md5(s: String): Array[Byte] = MessageDigest.getInstance("MD5").digest(s.getBytes)
+  def getSignedHash(m: Int, s: String): Int = (UnsignedInt(ByteBuffer.wrap(md5(s)).getInt).bigIntegerValue % Math.pow(2, m).toInt).intValue()
 
   def apply(m: Int, slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Server.Command]],
             successor: ActorRef[Server.Command], predecessor: ActorRef[Server.Command]): Behavior[Command] = {
@@ -97,8 +99,12 @@ object Server {
       def process(m: Int, slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Server.Command]],
                   successor: ActorRef[Server.Command], predecessor: ActorRef[Server.Command]): Behavior[Command] = {
         Behaviors.receive((context, message) => {
-          val hashValue = ringValue(m, ByteBuffer.wrap(md5(context.self.path.toString)).getInt) % Math.pow(2, m).round.toInt
+//          val hashValue = ringValue(m, ByteBuffer.wrap(md5(context.self.path.toString)).getInt) % Math.pow(2, m).round.toInt
+          val hashValue = getSignedHash(m, context.self.path.toString)
+
           context.log.info(s"${context.self.path}\t:\trestarted behavior\t-\thashValue=$hashValue\tsuccessor=$successor\tpredecessor=$predecessor")
+
+          context.log.info(s"${context.self.path}\t:\tHash value = $hashValue")
 
           message match {
             case Parent.Join(successorNodeRef, predecessorNodeRef) =>
@@ -282,14 +288,14 @@ object Server {
               else {
                 implicit val timeout: Timeout = 5.seconds
                 context.log.info(s"${context.self.path}\t:\tI am my own successor")
-                if (id > hashValue) {
-                  context.log.info(s"${context.self.path}\t:\tSuccessor of key $id is $newNodeRef itself")
-                  context.ask(newNodeRef, GetHashValue) {
-                    case x @ Success(HashResponse(newNodeHashValue)) =>
-                      replyTo ! SuccessorFound(i, id, newNodeRef, newNodeHashValue, newNodeRef)
-                      x.value
-                    case Failure(_) => HashResponseError
-                  }
+                context.log.info(s"${context.self.path}\t:\tid = $id, hashValue = $hashValue")
+
+                context.log.info(s"${context.self.path}\t:\tSuccessor of key $id is $newNodeRef itself")
+                context.ask(newNodeRef, GetHashValue) {
+                  case x @ Success(HashResponse(newNodeHashValue)) =>
+                    replyTo ! SuccessorFound(i, id, newNodeRef, newNodeHashValue, newNodeRef)
+                    x.value
+                  case Failure(_) => HashResponseError
                 }
               }
               Behaviors.same
@@ -309,14 +315,12 @@ object Server {
               else {
                 implicit val timeout: Timeout = 5.seconds
                 context.log.info(s"${context.self.path}\t:\tI am my own successor")
-                if (id > hashValue) {
-                  context.log.info(s"${context.self.path}\t:\tSuccessor of key $id is $newNodeRef itself")
-                  context.ask(newNodeRef, GetHashValue) {
-                    case x @ Success(HashResponse(newNodeHashValue)) =>
-                      replyTo ! SuccessorFound(i, id, newNodeRef, newNodeHashValue, newNodeRef)
-                      x.value
-                    case Failure(_) => HashResponseError
-                  }
+                context.log.info(s"${context.self.path}\t:\tSuccessor of key $id is $newNodeRef itself")
+                context.ask(newNodeRef, GetHashValue) {
+                  case x @ Success(HashResponse(newNodeHashValue)) =>
+                    replyTo ! SuccessorFound(i, id, newNodeRef, newNodeHashValue, newNodeRef)
+                    x.value
+                  case Failure(_) => HashResponseError
                 }
               }
               Behaviors.same
@@ -335,7 +339,7 @@ object Server {
               }
               else {
                 context.log.info(s"${context.self.path}\t:\tInitialized finger tables: \nslotToHash - $slotToHash\nhashToRef - $hashToRef")
-                context.log.info(s"${context.self.path}\t:\tFinding my predecessor 1 to update")
+                context.log.info(s"${context.self.path}\t:\tFinding my predecessor 0 to update")
                 findPredecessorToUpdate(0, (hashValue-Math.pow(2, 0).round).toInt, context.self, hashValue, slotToHash(0),
                   context, slotToHash, hashToRef)
                 Behaviors.same
@@ -345,7 +349,7 @@ object Server {
 
             case UpdateFingerTable(newNode, newNodeHashValue, i) =>
               context.log.info(s"${context.self.path}\t:\tGot request to update finger $i in my finger table if required")
-              updateFingerTable(newNode, newNodeHashValue, i, hashValue, slotToHash(0), context, slotToHash, hashToRef, predecessor)
+              updateFingerTable(newNode, newNodeHashValue, i, hashValue, slotToHash(i), context, slotToHash, hashToRef, predecessor)
               Behaviors.same
 
             case FindPredecessorToUpdate(i, id, replyTo) =>
@@ -355,13 +359,19 @@ object Server {
 
             case PredecessorUpdateResponse(i, predecessor, predecessorHashValue) =>
               context.log.info(s"${context.self.path}\t:\tGot predecessor $i as node $predecessor with hash $predecessorHashValue")
-              context.log.info(s"${context.self.path}\t:\tSending update finger table message to predecessor $predecessor")
-              predecessor ! UpdateFingerTable(context.self, hashValue, i)
+
+              if (predecessor != context.self) {
+                context.log.info(s"${context.self.path}\t:\tSending update finger table message to predecessor $predecessor")
+                predecessor ! UpdateFingerTable(context.self, hashValue, i)
+              }
 
               if (i < (m-1)) {
                 context.log.info(s"${context.self.path}\t:\tFinding predecessor ${i + 1} to update")
                 findPredecessorToUpdate(i + 1, (hashValue - Math.pow(2, i + 1).round).toInt, context.self, hashValue, slotToHash(0),
                   context, slotToHash, hashToRef)
+              }
+              else {
+                context.log.info(s"${context.self.path}\t:\tFinished telling all my predecessors to update their finger tables")
               }
               Behaviors.same
           }
@@ -445,7 +455,11 @@ object Server {
                           predecessorSuccessorHashValue: Int, context: ActorContext[Command],
                           slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Command]],
                          predecessor: ActorRef[Command]): Unit = {
-      if (isInRightOpenInterval(newNodeHashValue, predecessorHashValue, slotToHash(i))) {
+      context.log.info(s"${context.self.path}\t:\tchecking whether I can update my finger $i to node with hash $newNodeHashValue")
+      context.log.info(s"${context.self.path}\t:\tchecking whether node with hash $newNodeHashValue succeeds my current " +
+        s"successor node with hash ${slotToHash(i)}")
+      if (isInRightOpenInterval(newNodeHashValue, predecessorHashValue, slotToHash(i)) ||
+        (i == 0 && predecessorHashValue == predecessorSuccessorHashValue)) {
         context.log.info(s"${context.self.path}\t:\tUpdating finger $i in my finger table")
         if (i == 0) context.self ! UpdateFingerTableAndSuccessor(newNode, slotToHash+(i -> newNodeHashValue), hashToRef+(newNodeHashValue -> newNode))
         else context.self ! UpdateFingerTableAndSuccessor(null, slotToHash+(i -> newNodeHashValue), hashToRef+(newNodeHashValue -> newNode))

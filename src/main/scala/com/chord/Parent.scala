@@ -18,7 +18,7 @@ object Parent {
 
   def md5(s: String): Array[Byte] = MessageDigest.getInstance("MD5").digest(s.getBytes)
 
-  def getSignedHash(m: Int, s: String): Int = ByteBuffer.wrap(md5(s)).getInt % Math.pow(2, m).toInt
+  def getSignedHash(m: Int, s: String): Int = (UnsignedInt(ByteBuffer.wrap(md5(s)).getInt).bigIntegerValue % Math.pow(2, m).toInt).intValue()
 
   def apply(m: Int, slotToAddress: mutable.Map[Int, ActorRef[Server.Command]]): Behavior[Command] =
     Behaviors.setup[Command] (context => {
