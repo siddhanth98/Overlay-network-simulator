@@ -1,9 +1,11 @@
 package com.chord
 
-import akka.actor.typed.ActorSystem
+import akka.actor.typed.{ActorRef, ActorSystem}
+import akka.actor.typed.scaladsl.Behaviors
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Route
 
+import scala.collection.mutable
 import scala.util.{Failure, Success}
 
 object HttpServer {
@@ -29,6 +31,13 @@ object HttpServer {
    * start the http server using the helper method above
    */
   def main(args: Array[String]): Unit = {
-
+    val guardianBehavior = Behaviors.setup[Nothing] {context =>
+      val parentActor = context.spawn(Parent(4, mutable.Map[Int, ActorRef[Server.Command]]()), "Parent")
+      context.log.info(s"${context.self.path}\t:\tSpawned parent actor - $parentActor")
+      val userRoutes = new UserRoutes(parentActor)(context.system)
+      startHttpServer(userRoutes.userRoutes)(context.system)
+      Behaviors.empty
+    }
+    val system = ActorSystem[Nothing](guardianBehavior, "ChordActorSystem")
   }
 }

@@ -60,17 +60,19 @@ object Server {
   final case class DataStorageResponseSuccess(description: String) extends DataActionResponse
   final case class DataStorageResponseFailed(description: String) extends DataActionResponse
   final case class StoreData(data: Data, id: Int, srcRouteRef: ActorRef[DataActionResponse]) extends Command
-  final case class GetAllData(replyTo: ActorRef[AllData]) extends Command
+  final case class GetAllData(replyTo: ActorRef[AllData]) extends Command with Parent.Command
 
   /**
    * Set of messages for finding successors, predecessors and success and failure responses
    * when obtaining or storing data
    */
-  final case class FindSuccessorToFindData(name: String, srcRouteRef: ActorRef[DataActionResponse]) extends Command
-  final case class FindPredecessorToFindData(name: String, id: Int, replyTo: ActorRef[Command], srcRouteRef: ActorRef[DataActionResponse]) extends Command
-  final case class SuccessorFoundForData(name: String, id: Int, successorRef: ActorRef[Command], srcRouteRef: ActorRef[DataActionResponse]) extends Command
+  final case class FindSuccessorToFindData(name: String, srcRouteRef: ActorRef[DataActionResponse]) extends Command with Parent.Command
+  final case class FindPredecessorToFindData(name: String, id: Int, replyTo: ActorRef[Command],
+                                             srcRouteRef: ActorRef[DataActionResponse]) extends Command
+  final case class SuccessorFoundForData(name: String, id: Int, successorRef: ActorRef[Command],
+                                         srcRouteRef: ActorRef[DataActionResponse]) extends Command
   final case class SuccessorNotFound(name: String, id: Int, srcRouteRef: ActorRef[DataActionResponse]) extends Command
-  final case class FindNodeForStoringData(data: Data, srcRouteRef: ActorRef[DataActionResponse]) extends Command
+  final case class FindNodeForStoringData(data: Data, srcRouteRef: ActorRef[DataActionResponse]) extends Command with Parent.Command
 
   /**
    * Set of messages for finding successors and predecessors when a new node joins
@@ -254,7 +256,7 @@ object Server {
 
             case StoreData(data, id, srcRouteRef) =>
               context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tGot request to store data with key $id")
-              srcRouteRef ! DataStorageResponseSuccess(s"Data key $id stored with node with key $hashValue. Success!")
+              srcRouteRef ! DataStorageResponseSuccess(s"Movie '${data.name}' uploaded successfully")
               process(movies+data, m, slotToHash, hashToRef, successor, predecessor)
 
             case FindSuccessorToFindData(name, srcRouteRef) =>
@@ -270,14 +272,14 @@ object Server {
               Behaviors.same
 
             case SuccessorNotFound(name, id, srcRouteRef) =>
-              srcRouteRef ! DataResponseFailed(s"Could not find data $name corresponding to hash value $id")
+              srcRouteRef ! DataResponseFailed(s"Could not find movie '$name'")
               Behaviors.same
 
             case GetData(name, id, srcRouteRef) =>
               context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tgot request to search for data key $id stored with me. Searching...")
               val data = movies.find(_.name == name)
               data match {
-                case None => srcRouteRef ! DataResponseFailed(s"Could not find data $name corresponding to hash value $id")
+                case None => srcRouteRef ! DataResponseFailed(s"Could not find movie '$name'")
                 case _ => srcRouteRef ! DataResponseSuccess(data)
               }
               Behaviors.same
@@ -317,7 +319,7 @@ object Server {
               Behaviors.same
 
             case NewSuccessorResponse(i, newSuccessor, newSuccessorHashValue) =>
-              if (i < (m)) {
+              if (i < m) {
                 context.log.info(s"${context.self.path}\t:\t(i = $i) => (fingerNode = $newSuccessor\t;\thash = $newSuccessorHashValue)")
                 successor ! FindSuccessor(i+1, ((hashValue+Math.pow(2, i+1).round) % Math.pow(2, m)).toInt, successor, context.self, hashValue)
                 process(movies, m, slotToHash+(i->newSuccessorHashValue), hashToRef+(newSuccessorHashValue->newSuccessor), successor, predecessor)
