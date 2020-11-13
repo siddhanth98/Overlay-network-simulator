@@ -53,17 +53,17 @@ object Parent {
       Thread.sleep(2000)
       val dataName = s"Movie${scala.util.Random.nextInt(1000)}"
       val dataHash = getSignedHash(m, dataName)
-      val data = Server.Data(dataHash, dataName, 500, s"Action")
+      val data = Server.Data(dataName, 500, s"Action")
       context.log.info(s"${context.self.path}\t:\tSending data key $dataHash to be stored")
-      serverNode3 ! Server.FindNodeForStoringData(data, dataHash, context.self)
+      serverNode3 ! Server.FindNodeForStoringData(data, context.self)
 
       Thread.sleep(2000)
       val dataName2 = s"Movie${scala.util.Random.nextInt(1000)}"
       val dataHash2 = getSignedHash(m, dataName2)
-      val data2 = Server.Data(dataHash2, dataName2, 501, s"Comedy")
+      val data2 = Server.Data(dataName2, 501, s"Comedy")
 
       context.log.info(s"${context.self.path}\t:\tSending data key $dataHash2 to be stored")
-      serverNode1 ! Server.FindNodeForStoringData(data2, dataHash2, context.self)
+      serverNode1 ! Server.FindNodeForStoringData(data2, context.self)
 
       serverNode4 ! FindSuccessorToFindData(dataName2, context.self)
 

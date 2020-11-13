@@ -52,13 +52,15 @@ object Server {
    * Set of messages for representing data and data responses
    * Data here represents a movie type having a name, size in MB and genre
    */
-  final case class Data(id: Int, name: String, size: Int, genre: String)
+  final case class Data(name: String, size: Int, genre: String)
+  final case class AllData(movies: Set[Data]) extends Command
   final case class GetData(name: String, id: Int, srcRouteRef: ActorRef[DataActionResponse]) extends Command
   final case class DataResponseSuccess(data: Option[Data]) extends DataActionResponse
   final case class DataResponseFailed(description: String) extends DataActionResponse
   final case class DataStorageResponseSuccess(description: String) extends DataActionResponse
   final case class DataStorageResponseFailed(description: String) extends DataActionResponse
   final case class StoreData(data: Data, id: Int, srcRouteRef: ActorRef[DataActionResponse]) extends Command
+  final case class GetAllData(replyTo: ActorRef[AllData]) extends Command
 
   /**
    * Set of messages for finding successors, predecessors and success and failure responses
@@ -68,7 +70,7 @@ object Server {
   final case class FindPredecessorToFindData(name: String, id: Int, replyTo: ActorRef[Command], srcRouteRef: ActorRef[DataActionResponse]) extends Command
   final case class SuccessorFoundForData(name: String, id: Int, successorRef: ActorRef[Command], srcRouteRef: ActorRef[DataActionResponse]) extends Command
   final case class SuccessorNotFound(name: String, id: Int, srcRouteRef: ActorRef[DataActionResponse]) extends Command
-  final case class FindNodeForStoringData(data: Data, id: Int, srcRouteRef: ActorRef[DataActionResponse]) extends Command
+  final case class FindNodeForStoringData(data: Data, srcRouteRef: ActorRef[DataActionResponse]) extends Command
 
   /**
    * Set of messages for finding successors and predecessors when a new node joins
@@ -244,7 +246,8 @@ object Server {
               context.log.error(s"${context.self.path} : could not get actor state response")
               Behaviors.same
 
-            case FindNodeForStoringData(data, id, srcRouteRef) =>
+            case FindNodeForStoringData(data, srcRouteRef) =>
+              val id = getSignedHash(m, data.name)
               context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tGot request for finding a node to store data with key $id")
               findSuccessorToStoreData(data, id, srcRouteRef, hashValue, slotToHash(0), context, slotToHash, hashToRef)
               Behaviors.same
@@ -277,6 +280,10 @@ object Server {
                 case None => srcRouteRef ! DataResponseFailed(s"Could not find data $name corresponding to hash value $id")
                 case _ => srcRouteRef ! DataResponseSuccess(data)
               }
+              Behaviors.same
+
+            case GetAllData(replyTo) =>
+              replyTo ! AllData(movies)
               Behaviors.same
 
             case FindSuccessor(i, id, replyTo, newNodeRef, newNodeHashValue) =>
@@ -377,7 +384,7 @@ object Server {
         }
         else {
           context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tSending search of node for data key $id to $closestPrecedingNodeRef")
-          closestPrecedingNodeRef ! FindNodeForStoringData(data, id, srcRouteRef)
+          closestPrecedingNodeRef ! FindNodeForStoringData(data, srcRouteRef)
         }
       }
       Behaviors.same
