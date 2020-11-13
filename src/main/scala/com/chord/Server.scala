@@ -16,7 +16,7 @@ import scala.math.BigInt.javaBigInteger2bigInt
 object Server {
 
   trait Command
-  sealed trait DataActionResponse extends Command
+  sealed trait DataActionResponse extends Command with Parent.Command
 
   /**
    * Set of messages for querying and obtaining finger tables
@@ -52,8 +52,8 @@ object Server {
    * Set of messages for representing data and data responses
    * Data here represents a movie type having a name, size in MB and genre
    */
-  final case class Data(name: String, size: Int, genre: String)
-  final case class GetData(id: Int, srcRouteRef: ActorRef[DataActionResponse]) extends Command
+  final case class Data(id: Int, name: String, size: Int, genre: String)
+  final case class GetData(name: String, id: Int, srcRouteRef: ActorRef[DataActionResponse]) extends Command
   final case class DataResponseSuccess(data: Option[Data]) extends DataActionResponse
   final case class DataResponseFailed(description: String) extends DataActionResponse
   final case class DataStorageResponseSuccess(description: String) extends DataActionResponse
@@ -64,10 +64,10 @@ object Server {
    * Set of messages for finding successors, predecessors and success and failure responses
    * when obtaining or storing data
    */
-  final case class FindSuccessorToFindData(id: Int, srcRouteRef: ActorRef[DataActionResponse]) extends Command
-  final case class FindPredecessorToFindData(id: Int, replyTo: ActorRef[Command], srcRouteRef: ActorRef[DataActionResponse]) extends Command
-  final case class SuccessorFoundForData(id: Int, successorRef: ActorRef[Command], srcRouteRef: ActorRef[DataActionResponse]) extends Command
-  final case class SuccessorNotFound(id: Int, srcRouteRef: ActorRef[DataActionResponse]) extends Command
+  final case class FindSuccessorToFindData(name: String, srcRouteRef: ActorRef[DataActionResponse]) extends Command
+  final case class FindPredecessorToFindData(name: String, id: Int, replyTo: ActorRef[Command], srcRouteRef: ActorRef[DataActionResponse]) extends Command
+  final case class SuccessorFoundForData(name: String, id: Int, successorRef: ActorRef[Command], srcRouteRef: ActorRef[DataActionResponse]) extends Command
+  final case class SuccessorNotFound(name: String, id: Int, srcRouteRef: ActorRef[DataActionResponse]) extends Command
   final case class FindNodeForStoringData(data: Data, id: Int, srcRouteRef: ActorRef[DataActionResponse]) extends Command
 
   /**
@@ -254,24 +254,29 @@ object Server {
               srcRouteRef ! DataStorageResponseSuccess(s"Data key $id stored with node with key $hashValue. Success!")
               process(movies+data, m, slotToHash, hashToRef, successor, predecessor)
 
-            case FindSuccessorToFindData(id, srcRouteRef) =>
-              findSuccessorToFindData(id, srcRouteRef, hashValue, slotToHash(0), context, slotToHash, hashToRef)
+            case FindSuccessorToFindData(name, srcRouteRef) =>
+              findSuccessorToFindData(name, getSignedHash(m, name), srcRouteRef, hashValue, slotToHash(0), context, slotToHash, hashToRef)
               Behaviors.same
 
-            case FindPredecessorToFindData(id, replyTo, srcRouteRef) =>
-              findPredecessorToFindData(id, replyTo, srcRouteRef, hashValue, slotToHash(0), context, slotToHash, hashToRef)
+            case FindPredecessorToFindData(name, id, replyTo, srcRouteRef) =>
+              findPredecessorToFindData(name, id, replyTo, srcRouteRef, hashValue, slotToHash(0), context, slotToHash, hashToRef)
               Behaviors.same
 
-            case SuccessorFoundForData(id, successorRef, srcRouteRef) =>
-              successorRef ! GetData(id, srcRouteRef)
+            case SuccessorFoundForData(name, id, successorRef, srcRouteRef) =>
+              successorRef ! GetData(name, id, srcRouteRef)
               Behaviors.same
 
-            case SuccessorNotFound(id, srcRouteRef) =>
-              srcRouteRef ! DataResponseFailed(s"Could not find data corresponding to hash value $id")
+            case SuccessorNotFound(name, id, srcRouteRef) =>
+              srcRouteRef ! DataResponseFailed(s"Could not find data $name corresponding to hash value $id")
               Behaviors.same
 
-            case GetData(_, srcRouteRef) =>
-              srcRouteRef ! DataResponseSuccess(Some(Data("", 0, "")))
+            case GetData(name, id, srcRouteRef) =>
+              context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tgot request to search for data key $id stored with me. Searching...")
+              val data = movies.find(_.name == name)
+              data match {
+                case None => srcRouteRef ! DataResponseFailed(s"Could not find data $name corresponding to hash value $id")
+                case _ => srcRouteRef ! DataResponseSuccess(data)
+              }
               Behaviors.same
 
             case FindSuccessor(i, id, replyTo, newNodeRef, newNodeHashValue) =>
@@ -366,39 +371,53 @@ object Server {
         context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tFinding closest preceding node to store data with key $id")
         val closestPrecedingNodeRef = findClosestPrecedingFinger(id, hashValue, context, slotToHash, hashToRef)
         context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tClosest preceding node found is $closestPrecedingNodeRef")
-        context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tSending search of node for data key $id to $closestPrecedingNodeRef")
-        closestPrecedingNodeRef ! FindNodeForStoringData(data, id, srcRouteRef)
+        if (closestPrecedingNodeRef == context.self) {
+          context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tStoring data key $id in myself")
+          closestPrecedingNodeRef ! StoreData(data, id, srcRouteRef)
+        }
+        else {
+          context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tSending search of node for data key $id to $closestPrecedingNodeRef")
+          closestPrecedingNodeRef ! FindNodeForStoringData(data, id, srcRouteRef)
+        }
       }
       Behaviors.same
     }
 
-    def findSuccessorToFindData(id: Int, srcRouteRef: ActorRef[DataActionResponse], hashValue: Int, successorHashValue: Int,
+    def findSuccessorToFindData(name: String, id: Int, srcRouteRef: ActorRef[DataActionResponse], hashValue: Int, successorHashValue: Int,
                       context: ActorContext[Command], slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Command]]): Behavior[Command] =
-      findPredecessorToFindData(id, context.self, srcRouteRef, hashValue, successorHashValue, context, slotToHash, hashToRef)
+      findPredecessorToFindData(name, id, context.self, srcRouteRef, hashValue, successorHashValue, context, slotToHash, hashToRef)
 
-    def findPredecessorToFindData(id: Int, replyTo: ActorRef[Command], srcRouteRef: ActorRef[DataActionResponse],
+    def findPredecessorToFindData(name: String, id: Int, replyTo: ActorRef[Command], srcRouteRef: ActorRef[DataActionResponse],
                        hashValue: Int, successorHashValue: Int, context: ActorContext[Command],
                                   slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Command]]): Behavior[Command] = {
       context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tGot request for processing data key $id")
       if (id == hashValue) {
         context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tI have the data for key $id. Returning myself.")
-        replyTo ! SuccessorFoundForData(id, context.self, srcRouteRef)
+        replyTo ! SuccessorFoundForData(name, id, context.self, srcRouteRef)
       }
       else if (hashValue != successorHashValue && isInLeftOpenInterval(id, hashValue, successorHashValue)) {
-        context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tSuccessor with key $successorHashValue has the key $id. " +
+        context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tSuccessor with key $successorHashValue should have the key $id. " +
           s"Returning ${hashToRef(slotToHash(0))}")
-        replyTo ! SuccessorFoundForData(id, hashToRef(slotToHash(0)), srcRouteRef)
+        replyTo ! SuccessorFoundForData(name, id, hashToRef(slotToHash(0)), srcRouteRef)
       }
       else if (hashValue != successorHashValue) {
         context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tFinding the closest preceding node to key $id")
         val closestPrecedingNodeRef = findClosestPrecedingFinger(id, hashValue, context, slotToHash, hashToRef)
-        context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tClosest preceding node found is $closestPrecedingNodeRef")
-        context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tSending search to node $closestPrecedingNodeRef")
-        replyTo ! FindSuccessorToFindData(id, srcRouteRef)
+
+        if (closestPrecedingNodeRef == context.self) {
+          context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tClosest preceding node found is myself. Key $id not found")
+          replyTo ! SuccessorNotFound(name, id, srcRouteRef)
+        }
+
+        else {
+          context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tClosest preceding node found is $closestPrecedingNodeRef")
+          context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tSending search to node $closestPrecedingNodeRef")
+          closestPrecedingNodeRef ! FindPredecessorToFindData(name, id, replyTo, srcRouteRef)
+        }
       }
       else {
         context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tCould not find node for data key $id")
-        replyTo ! SuccessorNotFound(id, srcRouteRef)
+        replyTo ! SuccessorNotFound(name, id, srcRouteRef)
       }
       Behaviors.same
     }

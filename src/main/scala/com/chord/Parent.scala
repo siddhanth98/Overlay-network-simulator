@@ -5,6 +5,7 @@ import java.security.MessageDigest
 
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
+import com.chord.Server.FindSuccessorToFindData
 
 import scala.collection.mutable
 import scala.math.BigInt.javaBigInteger2bigInt
@@ -48,7 +49,37 @@ object Parent {
       val serverNode4Hash = getSignedHash(m, serverNode4.path.toString)
       slotToAddress += (serverNode4Hash -> serverNode4)
       serverNode4 ! Join(findExistingSuccessorNode(m, serverNode4Hash, slotToAddress, context), findPredecessor(m, serverNode4Hash, slotToAddress, context))
-      Behaviors.same
+
+      Thread.sleep(2000)
+      val dataName = s"Movie${scala.util.Random.nextInt(1000)}"
+      val dataHash = getSignedHash(m, dataName)
+      val data = Server.Data(dataHash, dataName, 500, s"Action")
+      context.log.info(s"${context.self.path}\t:\tSending data key $dataHash to be stored")
+      serverNode3 ! Server.FindNodeForStoringData(data, dataHash, context.self)
+
+      Thread.sleep(2000)
+      val dataName2 = s"Movie${scala.util.Random.nextInt(1000)}"
+      val dataHash2 = getSignedHash(m, dataName2)
+      val data2 = Server.Data(dataHash2, dataName2, 501, s"Comedy")
+
+      context.log.info(s"${context.self.path}\t:\tSending data key $dataHash2 to be stored")
+      serverNode1 ! Server.FindNodeForStoringData(data2, dataHash2, context.self)
+
+      serverNode4 ! FindSuccessorToFindData(dataName2, context.self)
+
+      Behaviors.receive {
+        case (context, Server.DataStorageResponseSuccess(d)) =>
+          context.log.info(s"${context.self.path}\t:\tGot response $d")
+          Behaviors.same
+
+        case (context, Server.DataResponseSuccess(data)) =>
+          context.log.info(s"${context.self.path}\t:\tdata found is:\t${data.get}")
+          Behaviors.same
+
+        case (context, Server.DataResponseFailed(d)) =>
+          context.log.info(s"${context.self.path}\t:\tgot response {$d} ")
+          Behaviors.same
+      }
     })
 
   /**
