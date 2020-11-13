@@ -245,23 +245,11 @@ object Server {
               Behaviors.same
 
             case FindSuccessorToFindData(id, srcRouteRef) =>
-              implicit val timeout: Timeout = 5.seconds
-              context.ask(successor, GetHashValue) {
-                case x @ Success(HashResponse(successorHashValue)) =>
-                  findSuccessorToFindData(id, srcRouteRef, hashValue, successorHashValue, context, slotToHash, hashToRef)
-                  x.value
-                case Failure(_) => HashResponseError
-              }
+              findSuccessorToFindData(id, srcRouteRef, hashValue, slotToHash(0), context, slotToHash, hashToRef)
               Behaviors.same
 
             case FindPredecessorToFindData(id, replyTo, srcRouteRef) =>
-              implicit val timeout: Timeout = 5.seconds
-              context.ask(successor, GetHashValue) {
-                case x @ Success(HashResponse(successorHashValue)) =>
-                  findPredecessorToFindData(id, replyTo, srcRouteRef, hashValue, successorHashValue, context, slotToHash, hashToRef)
-                  x.value
-                case Failure(_) => HashResponseError
-              }
+              findPredecessorToFindData(id, replyTo, srcRouteRef, hashValue, slotToHash(0), context, slotToHash, hashToRef)
               Behaviors.same
 
             case SuccessorFoundForData(id, successorRef, srcRouteRef) =>
@@ -360,24 +348,36 @@ object Server {
     def findPredecessorToFindData(id: Int, replyTo: ActorRef[Command], srcRouteRef: ActorRef[DataActionResponse],
                        hashValue: Int, successorHashValue: Int, context: ActorContext[Command],
                                   slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Command]]): Behavior[Command] = {
-      if (!isInLeftOpenInterval(id, hashValue, successorHashValue) && hashToRef(slotToHash(0)) == replyTo)
-        replyTo ! SuccessorNotFound(id, srcRouteRef)
-      else if (!isInLeftOpenInterval(id, hashValue, successorHashValue)) {
-        val closestPrecedingNodeRef = findClosestPrecedingFinger(id, hashValue, context, slotToHash, hashToRef)
-        closestPrecedingNodeRef ! FindPredecessorToFindData(id, replyTo, srcRouteRef)
+      context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tGot request for processing data key $id")
+      if (id == hashValue) {
+        context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tI have the data for key $id. Returning myself.")
+        replyTo ! SuccessorFoundForData(id, context.self, srcRouteRef)
       }
-      else replyTo ! SuccessorFoundForData(id, hashToRef(slotToHash(0)), srcRouteRef)
+      else if (hashValue != successorHashValue && isInLeftOpenInterval(id, hashValue, successorHashValue)) {
+        context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tSuccessor with key $successorHashValue has the key $id. " +
+          s"Returning ${hashToRef(slotToHash(0))}")
+        replyTo ! SuccessorFoundForData(id, hashToRef(slotToHash(0)), srcRouteRef)
+      }
+      else if (hashValue != successorHashValue) {
+        context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tFinding the closest preceding node to key $id")
+        val closestPrecedingNodeRef = findClosestPrecedingFinger(id, hashValue, context, slotToHash, hashToRef)
+        context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tClosest preceding node found is $closestPrecedingNodeRef")
+        context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tSending search to node $closestPrecedingNodeRef")
+        replyTo ! FindSuccessorToFindData(id, srcRouteRef)
+      }
+      else {
+        context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tCould not find node for data key $id")
+        replyTo ! SuccessorNotFound(id, srcRouteRef)
+      }
       Behaviors.same
     }
 
     def findClosestPrecedingFinger(id: Int, hashValue: Int, context: ActorContext[Command], slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Command]]): ActorRef[Command] = {
       ((m-1) to 0 by -1).foreach(i => {
-        /*if (slotToHash.contains(i) && (slotToHash(i) % Math.pow(2, m).round) > hashValue && (slotToHash(i) % Math.pow(2, m).round) < id) return hashToRef(slotToHash(i)))*/
         if (slotToHash.contains(i) && isInOpenInterval(slotToHash(i), hashValue, id)) return hashToRef(slotToHash(i))
       })
       context.self
     }
-
 
     def findSuccessor(i: Int, id: Int, replyTo: ActorRef[Command], newNodeRef: ActorRef[Command], newNodeHashValue: Int, hashValue: Int, successorHashValue: Int,
                       context: ActorContext[Command], slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Command]]): Behavior[Command] =
