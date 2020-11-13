@@ -14,10 +14,6 @@ import scala.collection.mutable
 import scala.math.BigInt.javaBigInteger2bigInt
 
 object Server {
-  /*val finger = new Array[ActorRef[Server.Command]](3)
-  var successor: ActorRef[Server.Command] = _
-  var predecessor: ActorRef[Server.Command] = _
-  var hashValue: Int = _*/
 
   trait Command
   sealed trait DataActionResponse extends Command
@@ -60,6 +56,9 @@ object Server {
   final case class GetData(id: Int, srcRouteRef: ActorRef[DataActionResponse]) extends Command
   final case class DataResponseSuccess(data: Option[Data]) extends DataActionResponse
   final case class DataResponseFailed(description: String) extends DataActionResponse
+  final case class DataStorageResponseSuccess(description: String) extends DataActionResponse
+  final case class DataStorageResponseFailed(description: String) extends DataActionResponse
+  final case class StoreData(data: Data, id: Int, srcRouteRef: ActorRef[DataActionResponse]) extends Command
 
   /**
    * Set of messages for finding successors, predecessors and success and failure responses
@@ -69,6 +68,7 @@ object Server {
   final case class FindPredecessorToFindData(id: Int, replyTo: ActorRef[Command], srcRouteRef: ActorRef[DataActionResponse]) extends Command
   final case class SuccessorFoundForData(id: Int, successorRef: ActorRef[Command], srcRouteRef: ActorRef[DataActionResponse]) extends Command
   final case class SuccessorNotFound(id: Int, srcRouteRef: ActorRef[DataActionResponse]) extends Command
+  final case class FindNodeForStoringData(data: Data, id: Int, srcRouteRef: ActorRef[DataActionResponse]) extends Command
 
   /**
    * Set of messages for finding successors and predecessors when a new node joins
@@ -99,7 +99,7 @@ object Server {
   def apply(m: Int, slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Server.Command]],
             successor: ActorRef[Server.Command], predecessor: ActorRef[Server.Command]): Behavior[Command] = {
 
-      def process(m: Int, slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Server.Command]],
+      def process(movies: Set[Data], m: Int, slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Server.Command]],
                   successor: ActorRef[Server.Command], predecessor: ActorRef[Server.Command]): Behavior[Command] = {
         Behaviors.receive((context, message) => {
 //          val hashValue = ringValue(m, ByteBuffer.wrap(md5(context.self.path.toString)).getInt) % Math.pow(2, m).round.toInt
@@ -123,7 +123,7 @@ object Server {
                   newHashToRef += (hashValue -> context.self)
                 })
                 context.log.info(s"${context.self.path}\t:\tInitialized finger tables\t:\tslotToHash = $newSlotToHash\thashToRef = $newHashToRef")
-                process(m, newSlotToHash, newHashToRef, successorNodeRef, predecessorNodeRef)
+                process(movies, m, newSlotToHash, newHashToRef, successorNodeRef, predecessorNodeRef)
               }
 
               else {
@@ -180,7 +180,7 @@ object Server {
                   case Failure(_) => ActorStateResponseError
                 }
 
-                process(m, newSlotToHash, newHashToRef, successorNodeRef, predecessorNodeRef)
+                process(movies, m, newSlotToHash, newHashToRef, successorNodeRef, predecessorNodeRef)
               }
 
             case GetFingerTable(replyTo) =>
@@ -220,15 +220,15 @@ object Server {
 
             case SetPredecessor(newPredecessor) =>
               context.log.info(s"${context.self.path}\t:\tgot $newPredecessor as my new predecessor. Resetting $predecessor to $newPredecessor")
-              process(m, slotToHash, hashToRef, successor, newPredecessor)
+              process(movies, m, slotToHash, hashToRef, successor, newPredecessor)
 
             case UpdateFingerTableAndSuccessor(newSuccessor, i, newHash, newHashRef) =>
               context.log.info(s"${context.self.path}\t:\tgot new finger tables:\tslotToHash = ${slotToHash+(i -> newHash)}\thashToRef = ${hashToRef+(newHash -> newHashRef)}")
               newSuccessor match {
-                case null => process(m, slotToHash+(i -> newHash), hashToRef+(newHash -> newHashRef), successor, predecessor)
+                case null => process(movies, m, slotToHash+(i -> newHash), hashToRef+(newHash -> newHashRef), successor, predecessor)
                 case _ =>
                   context.log.info(s"${context.self.path}\t:\tgot $newSuccessor as my new successor. Resetting successor $successor to $newSuccessor")
-                  process(m, slotToHash+(i -> newHash), hashToRef+(newHash -> newHashRef), newSuccessor, predecessor)
+                  process(movies, m, slotToHash+(i -> newHash), hashToRef+(newHash -> newHashRef), newSuccessor, predecessor)
               }
 
             case GetActorState(replyTo) =>
@@ -243,6 +243,16 @@ object Server {
             case ActorStateResponseError =>
               context.log.error(s"${context.self.path} : could not get actor state response")
               Behaviors.same
+
+            case FindNodeForStoringData(data, id, srcRouteRef) =>
+              context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tGot request for finding a node to store data with key $id")
+              findSuccessorToStoreData(data, id, srcRouteRef, hashValue, slotToHash(0), context, slotToHash, hashToRef)
+              Behaviors.same
+
+            case StoreData(data, id, srcRouteRef) =>
+              context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tGot request to store data with key $id")
+              srcRouteRef ! DataStorageResponseSuccess(s"Data key $id stored with node with key $hashValue. Success!")
+              process(movies+data, m, slotToHash, hashToRef, successor, predecessor)
 
             case FindSuccessorToFindData(id, srcRouteRef) =>
               findSuccessorToFindData(id, srcRouteRef, hashValue, slotToHash(0), context, slotToHash, hashToRef)
@@ -298,7 +308,7 @@ object Server {
               if (i < (m)) {
                 context.log.info(s"${context.self.path}\t:\t(i = $i) => (fingerNode = $newSuccessor\t;\thash = $newSuccessorHashValue)")
                 successor ! FindSuccessor(i+1, ((hashValue+Math.pow(2, i+1).round) % Math.pow(2, m)).toInt, successor, context.self, hashValue)
-                process(m, slotToHash+(i->newSuccessorHashValue), hashToRef+(newSuccessorHashValue->newSuccessor), successor, predecessor)
+                process(movies, m, slotToHash+(i->newSuccessorHashValue), hashToRef+(newSuccessorHashValue->newSuccessor), successor, predecessor)
               }
               else {
                 context.log.info(s"${context.self.path}\t:\tInitialized finger tables: \nslotToHash - $slotToHash\nhashToRef - $hashToRef")
@@ -340,6 +350,27 @@ object Server {
           }
         })
       }
+
+    def findSuccessorToStoreData(data: Data, id: Int, srcRouteRef: ActorRef[DataActionResponse],
+                                hashValue: Int, successorHashValue: Int, context: ActorContext[Command],
+                                slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Command]]): Behavior[Command]  = {
+      if (hashValue == successorHashValue || id == hashValue) {
+        context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tI am storing data with key $id")
+        context.self ! StoreData(data, id, srcRouteRef)
+      }
+      else if (isInLeftOpenInterval(id, hashValue, successorHashValue)) {
+        context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tStoring data key $id in my successor node with key $successorHashValue")
+        hashToRef(slotToHash(0)) ! StoreData(data, id, srcRouteRef)
+      }
+      else {
+        context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tFinding closest preceding node to store data with key $id")
+        val closestPrecedingNodeRef = findClosestPrecedingFinger(id, hashValue, context, slotToHash, hashToRef)
+        context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tClosest preceding node found is $closestPrecedingNodeRef")
+        context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tSending search of node for data key $id to $closestPrecedingNodeRef")
+        closestPrecedingNodeRef ! FindNodeForStoringData(data, id, srcRouteRef)
+      }
+      Behaviors.same
+    }
 
     def findSuccessorToFindData(id: Int, srcRouteRef: ActorRef[DataActionResponse], hashValue: Int, successorHashValue: Int,
                       context: ActorContext[Command], slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Command]]): Behavior[Command] =
@@ -511,6 +542,6 @@ object Server {
       else (id > hash) || (id >= 0 && id < successorHash)
     }
 
-    process(m, slotToHash, hashToRef, successor, predecessor)
+    process(Set.empty, m, slotToHash, hashToRef, successor, predecessor)
   }
 }
