@@ -59,7 +59,7 @@ class UserRoutes (parent: ActorRef[Parent.Command])(implicit val system: ActorSy
   val homePageRoute: Route =
     pathEnd {
       get {
-        complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, "<h1>Hello! Please post/get some movies</h1>"))
+        complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, "<center><h1>Hello! Please upload/download some movies</h1></center>"))
       }
     }
 

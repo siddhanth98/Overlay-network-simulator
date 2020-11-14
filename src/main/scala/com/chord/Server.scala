@@ -1,5 +1,6 @@
 package com.chord
 
+import java.io.{File, FileOutputStream, OutputStreamWriter}
 import java.nio.ByteBuffer
 
 import akka.actor.typed.{ActorRef, Behavior}
@@ -10,6 +11,9 @@ import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success}
 import java.security.MessageDigest
 
+import org.yaml.snakeyaml.{DumperOptions, Yaml}
+
+import scala.collection.JavaConverters.mapAsJavaMapConverter
 import scala.collection.mutable
 import scala.math.BigInt.javaBigInteger2bigInt
 
@@ -109,9 +113,9 @@ object Server {
 //          val hashValue = ringValue(m, ByteBuffer.wrap(md5(context.self.path.toString)).getInt) % Math.pow(2, m).round.toInt
           val hashValue = getSignedHash(m, context.self.path.toString)
 
-          context.log.info(s"${context.self.path}\t:\trestarted behavior\t-\thashValue=$hashValue\tsuccessor=$successor\tpredecessor=$predecessor")
+          /*context.log.info(s"${context.self.path}\t:\trestarted behavior\t-\thashValue=$hashValue\tsuccessor=$successor\tpredecessor=$predecessor")
 
-          context.log.info(s"${context.self.path}\t:\tHash value = $hashValue")
+          context.log.info(s"${context.self.path}\t:\tHash value = $hashValue")*/
 
           message match {
             case Parent.Join(successorNodeRef, predecessorNodeRef) =>
@@ -157,35 +161,16 @@ object Server {
                     context.log.info(s"${context.self.path}\t:\t(i = 0) => (fingerNode = $successorNodeRef\t;\thash = $successorHashValue)")
                     successorNodeRef ! FindSuccessor(1, ((hashValue + Math.pow(2, 1).round) % Math.pow(2, m)).toInt, successorNodeRef, context.self, hashValue)
 
-                    /*
-                     * Fill in the new node's finger table using already existing successor's finger table
-                     */
-                    /*if ((hashValue + Math.pow(2, i)) <= newSlotToHash(0)) {
-                        context.log.info(s"($hashValue + 2 ^ $i) % (2 ^ $m) = ${(hashValue + Math.pow(2, i)) % Math.pow(2, m)} <= ${newSlotToHash(0)}")
-                        newSlotToHash += (i -> newSlotToHash(0))
-                        newHashToRef += (newSlotToHash(i) -> newHashToRef(newSlotToHash(i)))
-                      }
-
-                      else {
-                        // Here you cannot just take the previous finger table entry from the successor's finger table
-                        // Instead tell your successor to find the node with hash (hashValue + 2 ^ i) % (2 ^ m) and enter that
-                        // in your finger table's current index
-                        /*newSlotToHash += (i -> successorSlotToHash(index))
-                        index += 1
-                        newHashToRef += (newSlotToHash(i) -> successorHashToRef(newSlotToHash(i)))*/
-
-                      }*/
-
-                    // context.log.info(s"(i = $i) => (actorNode = ${successorHashToRef(newSlotToHash(i))}\t;\thash = ${newSlotToHash(i)})")
-
-//                    context.log.info(s"${context.self.path}\t:\thash = $hashValue\t:\tFinished initializing finger table.")
-//                    context.log.info(s"Initialized finger tables: \nslotToHash - $newSlotToHash\nhashToRef - $newHashToRef")
                     x.value
                   case Failure(_) => ActorStateResponseError
                 }
 
                 process(movies, m, newSlotToHash, newHashToRef, successorNodeRef, predecessorNodeRef)
               }
+
+            case Parent.DumpActorState =>
+              dumpState(hashValue, slotToHash, movies)
+              Behaviors.same
 
             case GetFingerTable(replyTo) =>
               context.log.info(s"${context.self.path} : got request for finger table from $replyTo")
@@ -509,26 +494,7 @@ object Server {
         val closestPrecedingNodeRef = findClosestPrecedingFinger(id, hashValue, context, slotToHash, hashToRef)
         context.log.info(s"${context.self.path}\t:\tClosest preceding node found is $closestPrecedingNodeRef")
 
-        if (closestPrecedingNodeRef == context.self) {
-          /*
-           * Closest preceding node found is myself, so I will check if the successor is between the new node and myself,
-           * or between myself and the new node
-           */
-          /*implicit val timeout: Timeout = 5.seconds
-          context.ask(replyTo, GetHashValue) {
-            case x @ Success(HashResponse(newNodeHashValue)) =>
-              if (isInLeftOpenInterval(id, hashValue, newNodeHashValue)) {
-                context.log.info(s"${context.self.path}\t:\tkey $id found between keys $hashValue and $newNodeHashValue")
-                replyTo ! PredecessorUpdateResponse(i, replyTo, newNodeHashValue)
-              } else if (isInLeftOpenInterval(id, newNodeHashValue, hashValue)) {
-                context.log.info(s"${context.self.path}\t:\tkey $id found between keys $newNodeHashValue and $hashValue")
-                replyTo ! PredecessorUpdateResponse(i, context.self, hashValue)
-              }
-              x.value
-            case Failure(_) => HashResponseError
-          }*/
-        }
-        else {
+        if (closestPrecedingNodeRef != context.self) {
           context.log.info(s"${context.self.path}\t:\tcould not find successor of key $id. Sending search to $closestPrecedingNodeRef")
           closestPrecedingNodeRef ! FindPredecessorToUpdate(i, id, replyTo)
         }
@@ -570,6 +536,27 @@ object Server {
       if (successorHash == hash) true
       else if (successorHash > hash) id > hash && id < successorHash
       else (id > hash) || (id >= 0 && id < successorHash)
+    }
+
+    def dumpState(hashValue: Int, slotToHash: mutable.Map[Int, Int], movies: Set[Data]): Unit = {
+      val options: DumperOptions = new DumperOptions()
+      options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK)
+      options.setIndent(2)
+
+      var yaml = new Yaml(options)
+      val writer = new OutputStreamWriter(new FileOutputStream(new File("src/main/resources/outputs/chord_node_states.yaml")))
+
+      yaml.dump(Map("hash" -> hashValue).asJava, writer)
+      yaml.dump("Finger table entries: (i: finger_hash)", writer)
+
+      slotToHash.keySet.toList.sorted.foreach(key => yaml.dump(Map(key -> slotToHash(key)).asJava, writer))
+      yaml.dump("Movies currently stored", writer)
+      movies.foreach(m => {
+        yaml.dump(Map("name" -> m.name).asJava, writer)
+        yaml.dump(Map("size" -> m.size).asJava, writer)
+        yaml.dump(Map("genre" -> m.genre).asJava, writer)
+      })
+      writer.close()
     }
 
     process(Set.empty, m, slotToHash, hashToRef, successor, predecessor)

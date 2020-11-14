@@ -31,7 +31,7 @@ object HttpServer {
    */
   def main(args: Array[String]): Unit = {
     val guardianBehavior = Behaviors.setup[Nothing] {context =>
-      val parentActor = context.spawn(Parent(4, 4), "Parent")
+      val parentActor = context.spawn(Parent(4, 10), "Parent")
       context.log.info(s"${context.self.path}\t:\tSpawned parent actor - $parentActor")
       val userRoutes = new UserRoutes(parentActor)(context.system)
       startHttpServer(userRoutes.userRoutes)(context.system)

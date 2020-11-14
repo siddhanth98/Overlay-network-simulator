@@ -13,5 +13,7 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-serialization-jackson" % akkaVersion,
   "com.typesafe.akka" %% "akka-cluster-sharding-typed" % akkaVersion,
   "com.google.guava" % "guava-primitives" % "r03",
-  "com.google.guava" % "guava" % "30.0-jre"
+  "com.google.guava" % "guava" % "30.0-jre",
+  "com.amihaiemil.web" % "eo-yaml" % "5.1.6",
+  "org.yaml" % "snakeyaml" % "1.9"
 )
