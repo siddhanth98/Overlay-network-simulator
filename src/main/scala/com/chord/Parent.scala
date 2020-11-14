@@ -23,9 +23,14 @@ object Parent {
 
   def getSignedHash(m: Int, s: String): Int = (UnsignedInt(ByteBuffer.wrap(md5(s)).getInt).bigIntegerValue % Math.pow(2, m).toInt).intValue()
 
-  def apply(m: Int, slotToAddress: mutable.Map[Int, ActorRef[Server.Command]]): Behavior[Command] =
+  def apply(m: Int, n: Int): Behavior[Command] =
     Behaviors.setup[Command] (context => {
-      val serverNode1 = context.spawn(Server(m, mutable.Map[Int, Int](), mutable.Map[Int, ActorRef[Server.Command]](),
+      val slotToAddress = spawnServers(m, n, context)
+      update(m, n, slotToAddress, slotToAddress.keySet.toList)
+    })
+
+  def update(m: Int, n: Int, slotToAddress: mutable.Map[Int, ActorRef[Server.Command]], actorHashesList: List[Int]): Behavior[Command] =
+      /*val serverNode1 = context.spawn(Server(m, mutable.Map[Int, Int](), mutable.Map[Int, ActorRef[Server.Command]](),
         null, null), "Server" + scala.util.Random.nextInt(100000).toString)
       val serverNode1Hash = getSignedHash(m, serverNode1.path.toString)
       slotToAddress += (serverNode1Hash -> serverNode1)
@@ -44,7 +49,7 @@ object Parent {
         null, null), "Server" + scala.util.Random.nextInt(100000).toString)
       val serverNode3Hash = getSignedHash(m, serverNode3.path.toString)
       slotToAddress += (serverNode3Hash -> serverNode3)
-      serverNode3 ! Join(findExistingSuccessorNode(m, serverNode3Hash, slotToAddress, context), findPredecessor(m, serverNode3Hash, slotToAddress, context))
+      serverNode3 ! Join(findExistingSuccessorNode(m, serverNode3Hash, slotToAddress, context), findPredecessor(m, serverNode3Hash, slotToAddress, context))*/
 
       /*Thread.sleep(2000)
       val serverNode4 = context.spawn(Server(m, mutable.Map[Int, Int](), mutable.Map[Int, ActorRef[Server.Command]](),
@@ -83,11 +88,6 @@ object Parent {
           context.log.info(s"${context.self.path}\t:\tgot response {$d} ")
           Behaviors.same
 
-        case (context, ActorList(replyTo)) =>
-          context.log.info(s"${context.self.path}\t:\tGot request from guardian to get actor list")
-          replyTo ! ActorListResponse(List(serverNode1, serverNode2))
-          Behaviors.same
-
         case x @ (context, Server.FindNodeForStoringData(data, srcRouteRef)) =>
           context.log.info(s"${context.self.path}\t:\tGot request for finding a node to store data ${data.name}")
           val randomActorToQuery = findRandomActor(slotToAddress, actorHashesList, context)
@@ -109,7 +109,32 @@ object Parent {
           randomActorToQuery ! Server.GetAllData(replyTo)
           Behaviors.same
       }
+
+  def spawnServers(m: Int, n: Int, context: ActorContext[Command]): mutable.Map[Int, ActorRef[Server.Command]] = {
+    val newSlotToAddress = mutable.Map[Int, ActorRef[Server.Command]]()
+
+    (1 to n).foreach(_ => {
+      val serverNode = context.spawn(Server(m, mutable.Map[Int, Int](), mutable.Map[Int, ActorRef[Server.Command]](),
+        null, null), "Server" + scala.util.Random.nextInt(100000).toString)
+      val serverNodeHash = getSignedHash(m, serverNode.path.toString)
+
+      if (!newSlotToAddress.contains(serverNodeHash)) {
+        if (newSlotToAddress.keySet.toList.isEmpty) {
+          newSlotToAddress += (serverNodeHash -> serverNode)
+          serverNode ! Join(serverNode, findPredecessor(m, serverNodeHash, newSlotToAddress, context))
+          context.log.info(s"${context.self.path}\t:\tSpawned 1st server $serverNode having hash $serverNodeHash")
+        }
+        else {
+          newSlotToAddress += (serverNodeHash -> serverNode)
+          serverNode ! Join(findExistingSuccessorNode(m, serverNodeHash, newSlotToAddress, context),
+            findPredecessor(m, serverNodeHash, newSlotToAddress, context))
+          context.log.info(s"${context.self.path}\t:\tSpawned server $serverNode having hash $serverNodeHash")
+        }
+      }
+      Thread.sleep(500)
     })
+    newSlotToAddress
+  }
 
   def findRandomActor(slotToAddress: mutable.Map[Int, ActorRef[Server.Command]], actorHashesList: List[Int],
                      context: ActorContext[Command]): ActorRef[Server.Command] = {

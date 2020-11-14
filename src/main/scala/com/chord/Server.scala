@@ -335,8 +335,10 @@ object Server {
             case NewSuccessorResponseError => Behaviors.same
 
             case UpdateFingerTable(newNode, newNodeHashValue, i) =>
-              context.log.info(s"${context.self.path}\t:\tGot request to update finger $i in my finger table if required")
-              updateFingerTable(newNode, newNodeHashValue, i, hashValue, slotToHash(i), context, slotToHash, hashToRef, predecessor)
+              if (slotToHash.contains(i)) {
+                context.log.info(s"${context.self.path}\t:\tGot request to update finger $i in my finger table if required")
+                updateFingerTable(newNode, newNodeHashValue, i, hashValue, slotToHash(i), context, slotToHash, hashToRef, predecessor)
+              }
               Behaviors.same
 
             case FindPredecessorToUpdate(i, id, replyTo) =>
