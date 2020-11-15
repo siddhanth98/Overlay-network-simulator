@@ -264,7 +264,9 @@ object Server {
               context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tgot request to search for data key $id stored with me. Searching...")
               val data = movies.find(_.name == name)
               data match {
-                case None => srcRouteRef ! DataResponseFailed(s"Could not find movie '$name'")
+                case None =>
+                  context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tRequested movie $name could not be found")
+                  srcRouteRef ! DataResponseFailed(s"Could not find movie '$name'")
                 case _ => srcRouteRef ! DataResponseSuccess(data)
               }
               Behaviors.same

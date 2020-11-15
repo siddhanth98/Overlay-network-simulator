@@ -50,8 +50,7 @@ object HttpClient {
   def makeHttpGetRequest(name: String): HttpRequest =
     HttpRequest (
       method = HttpMethods.GET,
-      uri = "http://localhost:8080/movies",
-      entity = HttpEntity(ContentTypes.`text/plain(UTF-8)`, name)
+      uri = s"http://localhost:8080/movies/getMovie/$name"
     )
 
   def sendRequest(context: ActorContext[Command], request: HttpRequest): Future[String] = {

@@ -42,19 +42,22 @@ class UserRoutes (parent: ActorRef[Parent.Command])(implicit val system: ActorSy
       }
     }
 
-  val getMovieRoute: Route =
-    path(Segment) { movieName =>
-      get {
-        onSuccess(getMovie(movieName)) { response => {
-          //noinspection TypeCheckCanBeMatch
-          if (response.isInstanceOf[DataResponseSuccess])
-            complete(response.asInstanceOf[DataResponseSuccess])
-          else
-            complete(response.asInstanceOf[DataResponseFailed])
-        }
+  val getMovieRoute: Route = {
+    pathPrefix("getMovie") {
+      path(Segment) { movieName =>
+        get {
+          onSuccess(getMovie(movieName)) { response => {
+            //noinspection TypeCheckCanBeMatch
+            if (response.isInstanceOf[DataResponseSuccess])
+              complete(response.asInstanceOf[DataResponseSuccess])
+            else
+              complete(response.asInstanceOf[DataResponseFailed])
+          }
+          }
         }
       }
     }
+  }
 
   val homePageRoute: Route =
     pathEnd {
