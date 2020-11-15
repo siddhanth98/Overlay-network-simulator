@@ -28,10 +28,10 @@ object Parent {
 
   def getSignedHash(m: Int, s: String): Int = (UnsignedInt(ByteBuffer.wrap(md5(s)).getInt).bigIntegerValue % Math.pow(2, m).toInt).intValue()
 
-  def apply(m: Int, n: Int): Behavior[Command] =
+  def apply(m: Int, n: Int, dumpPeriod: Int): Behavior[Command] =
     Behaviors.setup[Command] (context => Behaviors.withTimers { timer =>
       val slotToAddress = spawnServers(m, n, context)
-      timer.startTimerAtFixedRate(DumpActorState(context.self), 2.seconds)
+      timer.startTimerAtFixedRate(DumpActorState(context.self), dumpPeriod.seconds)
       context.log.info(s"${context.self.path}\t:\tSpawned actor hashes => [${slotToAddress.keySet.toList.mkString(", ")}]")
       update(m, n, slotToAddress, slotToAddress.keySet.toList, List.empty)
     })

@@ -16,7 +16,7 @@ object Simulation {
   final case class SimulationMovie(name: String, size: Int, genre: String) extends Command
   final val logger: Logger = LoggerFactory.getLogger(Simulation.getClass)
 
-  def apply(numberOfClients: Int): Behavior[Command] = {
+  def apply(numberOfClients: Int, simulationTime: Int, maxRequestsPerMin: Int): Behavior[Command] = {
     def update(movies: mutable.Set[SimulationMovie], numberOfClients: Int): Behavior[Command] = {
       Behaviors.setup { context =>
         context.log.info(s"${context.self.path}\t:\tSimulation starting...\nCreating client actors...")
@@ -42,17 +42,18 @@ object Simulation {
                 val randomClient = clientActors(Random.nextInt(clientActors.size))
                 logger.info(s"${context.self.path}\t:\tSelected client $randomClient to make a request")
                 if (Random.nextInt(10000) % 2 == 0)
-                  randomClient ! HttpClient.PostMovie("movie101", movieSize, movieGenre)
-                else randomClient ! HttpClient.GetMovie("movie101")
+                  randomClient ! HttpClient.PostMovie(movieName, movieSize, movieGenre)
+                else randomClient ! HttpClient.GetMovie(movieName)
 
-                if ((LocalTime.now().getSecond - startTime) >= 100) timer.cancel()
+                if ((LocalTime.now().getSecond - startTime) >= simulationTime) timer.cancel()
               }
             }
-            timer.schedule(timerTask, 0, 1000)
+            timer.schedule(timerTask, 0, (60/maxRequestsPerMin)*1000)
             Behaviors.same
         }
       }
     }
+    HttpServer()
     update(mutable.Set.empty, numberOfClients)
   }
 }

@@ -1,9 +1,12 @@
 package com.chord
 
+import java.io.File
+
 import akka.actor.typed.ActorSystem
 import akka.actor.typed.scaladsl.Behaviors
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Route
+import com.typesafe.config.ConfigFactory
 
 import scala.util.{Failure, Success}
 
@@ -29,9 +32,14 @@ object HttpServer {
    * Then link the user routes to each of the actors and
    * start the http server using the helper method above
    */
-  def main(args: Array[String]): Unit = {
+  def apply(): Unit = {
+    val config = ConfigFactory.parseFile(new File("src/main/resources/serverconfig.conf"))
+    val m = config.getInt("app.NUMBER_OF_FINGERS")
+    val n = config.getInt("app.NUMBER_OF_NODES")
+    val dumpPeriod = config.getInt("app.DUMP_PERIOD_IN_SEC")
+
     val guardianBehavior = Behaviors.setup[Nothing] {context =>
-      val parentActor = context.spawn(Parent(4, 10), "Parent")
+      val parentActor = context.spawn(Parent(m, n, dumpPeriod), "Parent")
       context.log.info(s"${context.self.path}\t:\tSpawned parent actor - $parentActor")
       val userRoutes = new UserRoutes(parentActor)(context.system)
       startHttpServer(userRoutes.userRoutes)(context.system)
@@ -39,4 +47,6 @@ object HttpServer {
     }
     val system = ActorSystem[Nothing](guardianBehavior, "ChordActorSystem")
   }
+
+  def main(args: Array[String]): Unit = HttpServer()
 }
