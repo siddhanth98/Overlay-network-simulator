@@ -33,7 +33,7 @@ object HttpServer {
    * start the http server using the helper method above
    */
   def apply(): Unit = {
-    val config = ConfigFactory.parseFile(new File("src/main/resources/serverconfig.conf"))
+    val config = ConfigFactory.parseFile(new File("src/main/resources/configuration/serverconfig.conf"))
     val m = config.getInt("app.NUMBER_OF_FINGERS")
     val n = config.getInt("app.NUMBER_OF_NODES")
     val dumpPeriod = config.getInt("app.DUMP_PERIOD_IN_SEC")

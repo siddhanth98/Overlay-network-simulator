@@ -1,5 +1,6 @@
 package com.chord
 
+import java.io.{File, FileWriter}
 import java.time.LocalTime
 import java.util.{Timer, TimerTask}
 
@@ -43,17 +44,21 @@ object Simulation {
                 logger.info(s"${context.self.path}\t:\tSelected client $randomClient to make a request")
                 if (Random.nextInt(10000) % 2 == 0)
                   randomClient ! HttpClient.PostMovie(movieName, movieSize, movieGenre)
-                else randomClient ! HttpClient.GetMovie(movieName)
+                else randomClient ! HttpClient.GetMovie(movies.toList(Random.nextInt(movies.size)).name)
 
-                if ((LocalTime.now().getSecond - startTime) >= simulationTime) timer.cancel()
+                if ((LocalTime.now().getSecond - startTime) >= simulationTime) {
+                  val outputFile = new FileWriter(new File("src/main/resources/outputs/client_data"))
+                  outputFile.write(s"\n----------------------- Simulation results ----------------------")
+                  outputFile.write(s"\nsimulationTime = $simulationTime\nmaxRequestsPerMinute = $maxRequestsPerMin")
+                  timer.cancel()
+                }
               }
             }
-            timer.schedule(timerTask, 0, (60/maxRequestsPerMin)*1000)
+            timer.schedule(timerTask, 0, Math.ceil(60D/maxRequestsPerMin.asInstanceOf[Double]).toInt*1000)
             Behaviors.same
         }
       }
     }
-    HttpServer()
     update(mutable.Set.empty, numberOfClients)
   }
 }

@@ -114,12 +114,7 @@ object Server {
       def process(movies: Set[Data], m: Int, slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Server.Command]],
                   successor: ActorRef[Server.Command], predecessor: ActorRef[Server.Command]): Behavior[Command] = {
         Behaviors.receive((context, message) => {
-//          val hashValue = ringValue(m, ByteBuffer.wrap(md5(context.self.path.toString)).getInt) % Math.pow(2, m).round.toInt
           val hashValue = getSignedHash(m, context.self.path.toString)
-
-          /*context.log.info(s"${context.self.path}\t:\trestarted behavior\t-\thashValue=$hashValue\tsuccessor=$successor\tpredecessor=$predecessor")
-
-          context.log.info(s"${context.self.path}\t:\tHash value = $hashValue")*/
 
           message match {
             case Parent.Join(successorNodeRef, predecessorNodeRef) =>

@@ -1,5 +1,7 @@
 package com.chord
 
+import java.io.File
+
 import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
 import JsonFormats._
 import akka.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
@@ -9,11 +11,13 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.util.Timeout
 import com.chord.Server.{AllData, Data, DataActionResponse, DataResponseFailed, DataResponseSuccess, DataStorageResponseSuccess, FindNodeForStoringData, FindSuccessorToFindData, GetAllData}
+import com.typesafe.config.{Config, ConfigFactory}
 
 import scala.concurrent.Future
 
 class UserRoutes (parent: ActorRef[Parent.Command])(implicit val system: ActorSystem[_]) {
-  private implicit val timeout: Timeout = Timeout.create(system.settings.config.getDuration("my-app.routes.ask-timeout"))
+  val config: Config = ConfigFactory.parseFile(new File("src/main/resources/configuration/application.conf"))
+  private implicit val timeout: Timeout = Timeout.create(config.getDuration("my-app.routes.ask-timeout"))
 
   def createMovie(data: Data): Future[DataActionResponse] =
     parent.ask(FindNodeForStoringData(data, _))

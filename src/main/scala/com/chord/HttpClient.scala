@@ -1,7 +1,7 @@
 package com.chord
 
 import akka.actor.ActorSystem
-import akka.actor.typed.Behavior
+import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpMethods, HttpRequest, HttpResponse}
@@ -10,6 +10,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.util.Success
 
 object HttpClient {
   System.setProperty(ContextInitializer.CONFIG_FILE_PROPERTY, "src/main/resources/logback.xml")
@@ -22,7 +23,10 @@ object HttpClient {
 
   final val logger: Logger = LoggerFactory.getLogger(HttpClient.getClass)
 
-  def apply(): Behavior[Command] =
+  def apply(): Behavior[Command] = Behaviors.setup {context =>
+    context.log.info(s"${context.self.path}\t:\tI was just created by the simulation. Creating a counter for me...")
+    val counterActor = context.spawn(Counter(), "myCounter")
+
     Behaviors.receive {
       case (context, PostMovie(name, size, genre)) =>
         context.log.info(s"${context.self.path}\t:\tSending post request for uploading movie => (name='$name', size=$size, genre='$genre')")
@@ -35,7 +39,9 @@ object HttpClient {
         sendRequest(context, makeHttpGetRequest(name))
           .foreach(res => logger.info(s"${context.self.path}\t:\tgot GET response => ($res)"))
         Behaviors.same
+
     }
+  }
 
   def makeHttpPostRequest(name: String, size: Int, genre: String): HttpRequest =
     HttpRequest (
@@ -56,6 +62,10 @@ object HttpClient {
   def sendRequest(context: ActorContext[Command], request: HttpRequest): Future[String] = {
     val responseFuture: Future[HttpResponse] = Http()(context.system).singleRequest(request)
     val entityFuture: Future[HttpEntity.Strict] = responseFuture.flatMap(m => m.entity.toStrict(5.seconds))
+    responseFuture.onComplete {
+      case Success(value) =>
+        context.log.info(s"${context.self.path}\t:\tresponse - ${value.toString()}")
+    }
     entityFuture.map(m => m.data.utf8String)
   }
 }
