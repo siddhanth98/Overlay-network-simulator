@@ -1,6 +1,5 @@
 package com.chord
 
-import java.io.{File, FileOutputStream, OutputStreamWriter}
 import java.nio.ByteBuffer
 
 import akka.actor.typed.{ActorRef, Behavior}
@@ -11,9 +10,7 @@ import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success}
 import java.security.MessageDigest
 
-import org.yaml.snakeyaml.{DumperOptions, Yaml}
-
-import scala.collection.JavaConverters.mapAsJavaMapConverter
+import org.slf4j.{Logger, LoggerFactory}
 import scala.collection.mutable
 import scala.math.BigInt.javaBigInteger2bigInt
 
@@ -21,6 +18,7 @@ object Server {
 
   trait Command
   sealed trait DataActionResponse extends Command with Parent.Command
+  final val logger: Logger = LoggerFactory.getLogger(Server.getClass)
 
   /**
    * Set of messages for querying and obtaining finger tables
@@ -100,6 +98,12 @@ object Server {
   final case class PredecessorUpdateResponse(i: Int, predecessor: ActorRef[Server.Command], predecessorHashValue: Int) extends Command
   final case object PredecessorUpdateResponseError extends Command
 
+  /**
+   * Object and message which define the node's state to be dumped in a yaml file
+   */
+  final case class StateToDump(nodeHash: Map[String, Int], fingerTable: List[mutable.Map[Int, Int]], movies: Set[Data])
+  final case class ActorState(replyTo: ActorRef[Command], state: StateToDump) extends Command with Parent.Command
+
   def md5(s: String): Array[Byte] = MessageDigest.getInstance("MD5").digest(s.getBytes)
   def getSignedHash(m: Int, s: String): Int = (UnsignedInt(ByteBuffer.wrap(md5(s)).getInt).bigIntegerValue % Math.pow(2, m).toInt).intValue()
   def getSignedHashOfRingSlotNumber(m: Int, slotNo: Int): Int = (UnsignedInt(slotNo).bigIntegerValue % Math.pow(2, m).toInt).intValue()
@@ -168,8 +172,8 @@ object Server {
                 process(movies, m, newSlotToHash, newHashToRef, successorNodeRef, predecessorNodeRef)
               }
 
-            case Parent.DumpActorState =>
-              dumpState(hashValue, slotToHash, movies)
+            case Parent.DumpActorState(replyTo) =>
+              replyTo ! ActorState(context.self, getCurrentState(hashValue, slotToHash, movies))
               Behaviors.same
 
             case GetFingerTable(replyTo) =>
@@ -265,9 +269,11 @@ object Server {
               val data = movies.find(_.name == name)
               data match {
                 case None =>
-                  context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tRequested movie $name could not be found")
+                  context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tRequested movie '$name' could not be found")
                   srcRouteRef ! DataResponseFailed(s"Could not find movie '$name'")
-                case _ => srcRouteRef ! DataResponseSuccess(data)
+                case _ =>
+                  context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tFound movie '$name' with me")
+                  srcRouteRef ! DataResponseSuccess(data)
               }
               Behaviors.same
 
@@ -540,26 +546,8 @@ object Server {
       else (id > hash) || (id >= 0 && id < successorHash)
     }
 
-    def dumpState(hashValue: Int, slotToHash: mutable.Map[Int, Int], movies: Set[Data]): Unit = {
-      val options: DumperOptions = new DumperOptions()
-      options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK)
-      options.setIndent(2)
-
-      var yaml = new Yaml(options)
-      val writer = new OutputStreamWriter(new FileOutputStream(new File("src/main/resources/outputs/chord_node_states.yaml")))
-
-      yaml.dump(Map("hash" -> hashValue).asJava, writer)
-      yaml.dump("Finger table entries: (i: finger_hash)", writer)
-
-      slotToHash.keySet.toList.sorted.foreach(key => yaml.dump(Map(key -> slotToHash(key)).asJava, writer))
-      yaml.dump("Movies currently stored", writer)
-      movies.foreach(m => {
-        yaml.dump(Map("name" -> m.name).asJava, writer)
-        yaml.dump(Map("size" -> m.size).asJava, writer)
-        yaml.dump(Map("genre" -> m.genre).asJava, writer)
-      })
-      writer.close()
-    }
+    def getCurrentState(hashValue: Int, slotToHash: mutable.Map[Int, Int], movies: Set[Data]): StateToDump =
+      StateToDump(Map("hash" -> hashValue), List(slotToHash), movies)
 
     process(Set.empty, m, slotToHash, hashToRef, successor, predecessor)
   }

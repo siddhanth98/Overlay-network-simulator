@@ -15,5 +15,7 @@ libraryDependencies ++= Seq(
   "com.google.guava" % "guava-primitives" % "r03",
   "com.google.guava" % "guava" % "30.0-jre",
   "com.amihaiemil.web" % "eo-yaml" % "5.1.6",
-  "org.yaml" % "snakeyaml" % "1.9"
+  "org.yaml" % "snakeyaml" % "1.27",
+  "com.fasterxml.jackson.dataformat" % "jackson-dataformat-yaml" % "2.10.3",
+  "com.fasterxml.jackson.core" % "jackson-databind" % "2.10.3"
 )

@@ -1,10 +1,15 @@
 package com.chord
 
+import java.io.{File, FileWriter}
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator.Feature
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 
 import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
@@ -17,7 +22,7 @@ object Parent {
     extends Command with Server.Command
   final case object ObserveFingerTable extends Command
   final case class ActorName(name: String) extends Command
-  final case object DumpActorState extends Command with Server.Command
+  final case class DumpActorState(replyTo: ActorRef[Command]) extends Command with Server.Command
 
   def md5(s: String): Array[Byte] = MessageDigest.getInstance("MD5").digest(s.getBytes)
 
@@ -26,17 +31,27 @@ object Parent {
   def apply(m: Int, n: Int): Behavior[Command] =
     Behaviors.setup[Command] (context => Behaviors.withTimers { timer =>
       val slotToAddress = spawnServers(m, n, context)
-      timer.startTimerAtFixedRate(DumpActorState, 2.seconds)
+      timer.startTimerAtFixedRate(DumpActorState(context.self), 2.seconds)
       context.log.info(s"${context.self.path}\t:\tSpawned actor hashes => [${slotToAddress.keySet.toList.mkString(", ")}]")
-      update(m, n, slotToAddress, slotToAddress.keySet.toList)
+      update(m, n, slotToAddress, slotToAddress.keySet.toList, List.empty)
     })
 
-  def update(m: Int, n: Int, slotToAddress: mutable.Map[Int, ActorRef[Server.Command]], actorHashesList: List[Int]): Behavior[Command] =
+  def update(m: Int, n: Int, slotToAddress: mutable.Map[Int, ActorRef[Server.Command]], actorHashesList: List[Int],
+            actorStates: List[Server.StateToDump]): Behavior[Command] =
       Behaviors.receive {
-        case (context, DumpActorState) =>
-//          context.log.info(s"${context.self.path}\t:\tReceived dump message")
-          slotToAddress.values.foreach(actor => actor ! DumpActorState)
+        case (context, DumpActorState(replyTo)) =>
+          context.log.info(s"${context.self.path}\t:\tReceived dump message. Telling all nodes to send their states to me.")
+          slotToAddress.values.foreach(actor => actor ! DumpActorState(replyTo))
           Behaviors.same
+
+        case (context, Server.ActorState(actorRef, state)) =>
+          context.log.info(s"${context.self.path}\t:\tGot dump state from actor $actorRef")
+          if (actorStates.size == slotToAddress.keySet.size-1) {
+            dumpState(state :: actorStates)
+            context.log.info(s"${context.self.path}\t:\tFinished dumping all actor states")
+            update(m, n, slotToAddress, actorHashesList, List.empty)
+          }
+          else update(m, n, slotToAddress, actorHashesList, state :: actorStates)
 
         case (context, Server.DataStorageResponseSuccess(d)) =>
           context.log.info(s"${context.self.path}\t:\tGot response $d")
@@ -50,21 +65,21 @@ object Parent {
           context.log.info(s"${context.self.path}\t:\tgot response {$d} ")
           Behaviors.same
 
-        case x @ (context, Server.FindNodeForStoringData(data, srcRouteRef)) =>
+        case (context, Server.FindNodeForStoringData(data, srcRouteRef)) =>
           context.log.info(s"${context.self.path}\t:\tGot request for finding a node to store data ${data.name}")
           val randomActorToQuery = findRandomActor(slotToAddress, actorHashesList, context)
           context.log.info(s"${context.self.path}\t:\tForwarding data storage request to node $randomActorToQuery")
           randomActorToQuery ! Server.FindNodeForStoringData(data, srcRouteRef)
           Behaviors.same
 
-        case x @ (context, Server.FindSuccessorToFindData(name, srcRouteRef)) =>
+        case (context, Server.FindSuccessorToFindData(name, srcRouteRef)) =>
           context.log.info(s"${context.self.path}\t:\tGot request to find data $name")
           val randomActorToQuery = findRandomActor(slotToAddress, actorHashesList, context)
           context.log.info(s"${context.self.path}\t:\tForwarding data query request to node $randomActorToQuery")
           randomActorToQuery ! Server.FindSuccessorToFindData(name, srcRouteRef)
           Behaviors.same
 
-        case x @ (context, Server.GetAllData(replyTo)) =>
+        case (context, Server.GetAllData(replyTo)) =>
           context.log.info(s"${context.self.path}\t:\tGot request to find all data")
           val randomActorToQuery = findRandomActor(slotToAddress, actorHashesList, context)
           context.log.info(s"${context.self.path}\t:\tForwarding request to get all data to node $randomActorToQuery")
@@ -135,5 +150,13 @@ object Parent {
       context.log.info(s"${context.self.path}\t:\tsuccessor node of $n = ${slotToAddress(resultIndex.get)}")
       slotToAddress(resultIndex.get)
     }
+  }
+
+  def dumpState(dumps: List[Server.StateToDump]): Unit = {
+    val outputFile = new FileWriter(new File("src/main/resources/outputs/chordState.yml"))
+    val objectMapper = new ObjectMapper(new YAMLFactory().enable(Feature.INDENT_ARRAYS))
+    objectMapper.registerModule(DefaultScalaModule)
+    objectMapper.writeValue(outputFile, dumps)
+    outputFile.close()
   }
 }
