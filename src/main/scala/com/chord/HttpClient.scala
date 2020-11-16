@@ -35,7 +35,7 @@ object HttpClient {
       case (context, PostMovie(name, size, genre)) =>
         context.log.info(s"${context.self.path}\t:\tSending post request for uploading movie => (name='$name', size=$size, genre='$genre')")
         sendRequest(context, makeHttpPostRequest(name, size, genre))
-          .foreach(res => logger.info(s"${context.self.path}\t:\tgot POST response => ($res)"))
+//          .foreach(res => logger.info(s"${context.self.path}\t:\tgot POST response => ($res)"))
         Behaviors.same
 
       case (context, GetMovie(name)) =>

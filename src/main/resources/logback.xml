@@ -29,6 +29,18 @@
         <appender-ref ref="CLIENT" />
     </logger>
 
+    <logger name="com.chord.Counter" level="INFO">
+        <appender-ref ref="CLIENT" />
+    </logger>
+
+    <logger name="com.chord.Aggregator" level="INFO">
+        <appender-ref ref="CLIENT" />
+    </logger>
+
+    <logger name="com.chord.Simulation" level="INFO">
+        <appender-ref ref="CLIENT" />
+    </logger>
+
     <logger name="com.chord.Main" level="INFO">
         <appender-ref ref="CLIENT" />
     </logger>

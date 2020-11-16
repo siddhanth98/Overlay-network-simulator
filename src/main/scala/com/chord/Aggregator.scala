@@ -34,8 +34,8 @@ object Aggregator {
 
   def writeAggregatedOutputToDisk(totalSuccesses: Int, totalFailures: Int): Unit = {
     val outputFile = new FileWriter(new File("src/main/resources/outputs/aggregate.txt"))
-    outputFile.append(s"Success(%) = ${100 * (totalSuccesses.asInstanceOf[Double]/(totalSuccesses+totalFailures).asInstanceOf[Double])}\n")
-    outputFile.append(s"Failure(%) = ${100 * (totalFailures.asInstanceOf[Double]/(totalSuccesses+totalFailures).asInstanceOf[Double])}\n")
+    outputFile.append(s"Success = ${100 * (totalSuccesses.asInstanceOf[Double]/(totalSuccesses+totalFailures).asInstanceOf[Double])}%\n")
+    outputFile.append(s"Failure = ${100 * (totalFailures.asInstanceOf[Double]/(totalSuccesses+totalFailures).asInstanceOf[Double])}%\n")
     outputFile.close()
   }
 }

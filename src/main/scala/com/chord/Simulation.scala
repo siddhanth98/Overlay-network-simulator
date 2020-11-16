@@ -1,7 +1,6 @@
 package com.chord
 
 import java.io.{File, FileWriter}
-import java.time.LocalTime
 import java.util.{Timer, TimerTask}
 
 import akka.actor.typed.{ActorRef, Behavior}
