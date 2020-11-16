@@ -1,0 +1,40 @@
+
+Client - Actor[akka://SimulationActorSystem/user/client3#1289997746]
+Success Count = 1	Failure Count = 0
+
+
+Client - Actor[akka://SimulationActorSystem/user/client5#689740620]
+Success Count = 0	Failure Count = 0
+
+
+Client - Actor[akka://SimulationActorSystem/user/client2#-1932743125]
+Success Count = 1	Failure Count = 1
+
+
+Client - Actor[akka://SimulationActorSystem/user/client8#-1951344575]
+Success Count = 0	Failure Count = 1
+
+
+Client - Actor[akka://SimulationActorSystem/user/client4#1655647347]
+Success Count = 0	Failure Count = 1
+
+
+Client - Actor[akka://SimulationActorSystem/user/client9#-1705443889]
+Success Count = 0	Failure Count = 0
+
+
+Client - Actor[akka://SimulationActorSystem/user/client6#-197402785]
+Success Count = 2	Failure Count = 1
+
+
+Client - Actor[akka://SimulationActorSystem/user/client1#-247866339]
+Success Count = 1	Failure Count = 0
+
+
+Client - Actor[akka://SimulationActorSystem/user/client7#468693678]
+Success Count = 1	Failure Count = 0
+
+
+Client - Actor[akka://SimulationActorSystem/user/client10#-1431085045]
+Success Count = 0	Failure Count = 0
+

@@ -19,19 +19,22 @@ object Simulation {
 
   def apply(numberOfClients: Int, simulationTime: Int, maxRequestsPerMin: Int): Behavior[Command] = {
     def update(movies: mutable.Set[SimulationMovie], numberOfClients: Int): Behavior[Command] = {
+
       Behaviors.setup { context =>
         context.log.info(s"${context.self.path}\t:\tSimulation starting...\nCreating client actors...")
+        context.log.info(s"${context.self.path}\t:\tSimulation will run for $simulationTime seconds")
         val genreList = List("Action", "Action-Thriller", "Comedy", "romantic-Comedy")
+        val aggregator = context.spawn(Aggregator(numberOfClients), "ClientCounterAggregator")
 
         Behaviors.receiveMessage {
           case CreateClients =>
             val clientActors = mutable.ListBuffer[ActorRef[HttpClient.Command]]()
             (1 to numberOfClients).foreach(i => {
-              val clientActor = context.spawn(HttpClient(), s"client$i")
+              val clientActor = context.spawn(HttpClient(aggregator), s"client$i")
               clientActors.append(clientActor)
             })
 
-            val startTime = LocalTime.now().getSecond
+            val startTime = System.currentTimeMillis() / 1000
             val timer = new Timer()
             val timerTask = new TimerTask {
               override def run(): Unit = {
@@ -46,10 +49,12 @@ object Simulation {
                   randomClient ! HttpClient.PostMovie(movieName, movieSize, movieGenre)
                 else randomClient ! HttpClient.GetMovie(movies.toList(Random.nextInt(movies.size)).name)
 
-                if ((LocalTime.now().getSecond - startTime) >= simulationTime) {
-                  val outputFile = new FileWriter(new File("src/main/resources/outputs/client_data"))
+                if (Math.abs(System.currentTimeMillis() / 1000 -startTime) >= simulationTime) {
+                  logger.info(s"${context.self.path}\t:\tFinishing simulation...")
+                  val outputFile = new FileWriter(new File("src/main/resources/outputs/client_data.txt"))
                   outputFile.write(s"\n----------------------- Simulation results ----------------------")
                   outputFile.write(s"\nsimulationTime = $simulationTime\nmaxRequestsPerMinute = $maxRequestsPerMin")
+                  clientActors.foreach(client => client ! HttpClient.FinishSimulation)
                   timer.cancel()
                 }
               }
