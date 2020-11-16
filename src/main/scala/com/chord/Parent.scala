@@ -98,13 +98,13 @@ object Parent {
       if (!newSlotToAddress.contains(serverNodeHash)) {
         if (newSlotToAddress.keySet.toList.isEmpty) {
           newSlotToAddress += (serverNodeHash -> serverNode)
-          serverNode ! Join(serverNode, findPredecessor(m, serverNodeHash, newSlotToAddress, context))
+          serverNode ! Join(serverNode, findPredecessor(serverNodeHash, newSlotToAddress, context))
           context.log.info(s"${context.self.path}\t:\tSpawned 1st server $serverNode having hash $serverNodeHash")
         }
         else {
           newSlotToAddress += (serverNodeHash -> serverNode)
-          serverNode ! Join(findExistingSuccessorNode(m, serverNodeHash, newSlotToAddress, context),
-            findPredecessor(m, serverNodeHash, newSlotToAddress, context))
+          serverNode ! Join(findExistingSuccessorNode(serverNodeHash, newSlotToAddress, context),
+            findPredecessor(serverNodeHash, newSlotToAddress, context))
           context.log.info(s"${context.self.path}\t:\tSpawned server $serverNode having hash $serverNodeHash")
         }
       }
@@ -123,7 +123,7 @@ object Parent {
   /**
    * Cyclically go through all entries and find the predecessor node of the new node joining
    */
-  def findPredecessor(m: Int, n: Int, slotToAddress: mutable.Map[Int, ActorRef[Server.Command]],
+  def findPredecessor(n: Int, slotToAddress: mutable.Map[Int, ActorRef[Server.Command]],
                      context: ActorContext[Command]): ActorRef[Server.Command] = {
     val resultIndex = slotToAddress.keySet.toList.sorted.reverse.find(_ < n)
     if (resultIndex.isEmpty) {
@@ -139,7 +139,7 @@ object Parent {
   /**
    * Cyclically go through all entries in the slotToAddress mapping table and find the first successor node of new node n
    */
-  def findExistingSuccessorNode(m: Int, n: Int, slotToAddress: mutable.Map[Int, ActorRef[Server.Command]],
+  def findExistingSuccessorNode(n: Int, slotToAddress: mutable.Map[Int, ActorRef[Server.Command]],
                                context: ActorContext[Command]): ActorRef[Server.Command] = {
     val resultIndex = slotToAddress.keySet.toList.sorted.find(_ > n)
     if (resultIndex.isEmpty) {

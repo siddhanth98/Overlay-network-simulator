@@ -45,7 +45,7 @@ object HttpServer {
       startHttpServer(userRoutes.userRoutes)(context.system)
       Behaviors.empty
     }
-    val system = ActorSystem[Nothing](guardianBehavior, "ChordActorSystem")
+    val _ = ActorSystem[Nothing](guardianBehavior, "ChordActorSystem")
   }
 
   def main(args: Array[String]): Unit = HttpServer()

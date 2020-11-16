@@ -146,7 +146,7 @@ object Server {
                 var newPredecessor: ActorRef[Server.Command] = null
 
                 context.ask(successorNodeRef, GetActorState) {
-                  case x @ Success(ActorStateResponse(successorSlotToHash, successorHashToRef, successorHashValue, successorPredecessor)) =>
+                  case x @ Success(ActorStateResponse(_, _, successorHashValue, successorPredecessor)) =>
                     context.log.info(s"${context.self.path}\t:\tHash value = $hashValue\t:\tStarting to initialize finger table...")
 
                     newSlotToHash += (0 -> successorHashValue)
@@ -255,7 +255,7 @@ object Server {
               successorRef ! GetData(name, id, srcRouteRef)
               Behaviors.same
 
-            case SuccessorNotFound(name, id, srcRouteRef) =>
+            case SuccessorNotFound(name, _, srcRouteRef) =>
               srcRouteRef ! DataResponseFailed(s"Could not find movie '$name'")
               Behaviors.same
 
@@ -521,8 +521,6 @@ object Server {
         predecessor ! UpdateFingerTable(newNode, newNodeHashValue, i)
       }
     }
-
-    def ringValue(m: Int, n: Int): Int = (n % Math.pow(2, m)).toInt
 
     def isInLeftOpenInterval(id: Int, hash: Int, successorHash: Int): Boolean =
       if (successorHash == hash || id == successorHash) true
