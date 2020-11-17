@@ -10,6 +10,9 @@ import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.wordspec.AnyWordSpecLike
 import org.slf4j.{Logger, LoggerFactory}
 
+/**
+ * This class is responsible for testing the client server request response cycle of the simulation.
+ */
 class ClientServerTest extends ScalaTestWithActorTestKit with AnyWordSpecLike {
   val logger: Logger = LoggerFactory.getLogger(classOf[ChordNodeTest])
   val config: Config =
@@ -27,6 +30,9 @@ class ClientServerTest extends ScalaTestWithActorTestKit with AnyWordSpecLike {
   val aggregatorTestProbe: TestProbe[Aggregate] = createTestProbe[Aggregate]()
   val client: ActorRef[HttpClient.Command] = spawn(HttpClient(aggregatorTestProbe.ref), "TestClient")
 
+  /**
+   * Before all tests are run, start the http server and post 2 movies in it to be tested.
+   */
   override def beforeAll(): Unit = {
     HttpServer(m, n, dumpPeriod)
     Thread.sleep(1000)
@@ -56,7 +62,8 @@ class ClientServerTest extends ScalaTestWithActorTestKit with AnyWordSpecLike {
   }
 
   "Aggregator" must {
-    "get an aggregate message from client's counter having success count 2 and fail count 0" in {
+    "get an aggregate message from client's counter having success count 2 and fail count 0 " +
+      "after 2 existing movies are queried and simulation ends" in {
       val newClient = spawn(HttpClient(aggregatorTestProbe.ref), "TestClient4")
       newClient ! GetMovie(movie1Name)
       newClient ! GetMovie(movie2Name)

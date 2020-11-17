@@ -17,6 +17,10 @@ import org.slf4j.{Logger, LoggerFactory}
 import scala.collection.mutable
 import scala.math.BigInt.javaBigInteger2bigInt
 
+/**
+ * This class is responsible for testing the finger tables and successor / predecessor pointers of
+ * the chord nodes in the ring.
+ */
 class ChordNodeTest extends ScalaTestWithActorTestKit with AnyWordSpecLike {
   val logger: Logger = LoggerFactory.getLogger(classOf[ChordNodeTest])
   val config: Config =

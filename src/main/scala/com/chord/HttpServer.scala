@@ -10,6 +10,9 @@ import com.typesafe.config.ConfigFactory
 
 import scala.util.{Failure, Success}
 
+/**
+ * This object starts the http server instance on port number 8080 using the created http routes
+ */
 object HttpServer {
   private def startHttpServer(route: Route)(implicit system: ActorSystem[_]): Unit = {
     import system.executionContext
@@ -27,10 +30,8 @@ object HttpServer {
 
   /**
    * Define the guardian behavior here.
-   * The guardian will spawn required number of child server actors
-   * that form part of the chord ring.
-   * Then link the user routes to each of the actors and
-   * start the http server using the helper method above
+   * The guardian will spawn the parent actor in the actor system.
+   * Then all http routes are linked to the parent actor.
    */
   def apply(m: Int, n: Int, dumpPeriod: Int): Unit = {
     val guardianBehavior = Behaviors.setup[Nothing] {context =>
@@ -43,6 +44,10 @@ object HttpServer {
     val _ = ActorSystem[Nothing](guardianBehavior, "ChordActorSystem")
   }
 
+  /**
+   * This is the main driver function of the chord server.
+   * It creates the http server object which is responsible for bootstrapping the server side actor system.
+   */
   def main(args: Array[String]): Unit = {
     val config = ConfigFactory.parseFile(new File("src/main/resources/configuration/serverconfig.conf"))
     val m = config.getInt("app.NUMBER_OF_FINGERS")

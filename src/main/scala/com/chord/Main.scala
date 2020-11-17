@@ -5,7 +5,10 @@ import java.io.File
 import akka.actor.typed.ActorSystem
 import com.typesafe.config.ConfigFactory
 
-
+/**
+ * This is the main driver object of the client side simulation (separate from the http server main driver)
+ * It creates the actor system whose guardian behavior is that of the simulation actor.
+ */
 object Main {
   def main(args: Array[String]): Unit = {
     val config = ConfigFactory.parseFile(new File("src/main/resources/configuration/clientconfig.conf"))

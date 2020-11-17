@@ -15,6 +15,13 @@ import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.math.BigInt.javaBigInteger2bigInt
 
+/**
+ * This actor is responsible for spawning child chord ring nodes and routing data request to a random node in the ring
+ * It maintains a timer whose ticks determine the period at which the state of all ring nodes is to be dumped on disk
+ * in yaml format
+ * This actor also maintains a map of (ring slot hash -> actor reference) to find the immediate successor and predecessor of a
+ * newly spawned node in the ring.
+ */
 object Parent {
 
   trait Command
@@ -36,14 +43,30 @@ object Parent {
       update(m, n, slotToAddress, slotToAddress.keySet.toList, List.empty)
     })
 
+  /**
+   * This function determines the behavior of this parent actor
+   * @param m Number of finger table entries of each actor node
+   * @param n Maximum number of nodes in the ring
+   * @param slotToAddress map of ring slot hash to actor ref
+   * @param actorHashesList List of all actor node hash values currently in the
+   * @param actorStates List of actor states to dump
+   */
   def update(m: Int, n: Int, slotToAddress: mutable.Map[Int, ActorRef[Server.Command]], actorHashesList: List[Int],
             actorStates: List[Server.StateToDump]): Behavior[Command] =
       Behaviors.receive {
+            /*
+            * Parent actor has sent itself a message to collect and dump all actor states
+            */
         case (context, DumpActorState(replyTo)) =>
           context.log.info(s"${context.self.path}\t:\tReceived dump message. Telling all nodes to send their states to me.")
           slotToAddress.values.foreach(actor => actor ! DumpActorState(replyTo))
           Behaviors.same
 
+          /*
+          * Parent actor has received state from one of the actor nodes. If states from all actors have been received,
+          * then this actor will dump all collected states on disk.
+          * Otherwise it will continue to wait for states from other actors
+          */
         case (context, Server.ActorState(actorRef, state)) =>
           context.log.info(s"${context.self.path}\t:\tGot dump state from actor $actorRef")
           if (actorStates.size == slotToAddress.keySet.size-1) {
@@ -65,6 +88,10 @@ object Parent {
           context.log.info(s"${context.self.path}\t:\tgot response {$d} ")
           Behaviors.same
 
+          /*
+          * This actor has received a request for storing some data(movie). It will find a random node in the ring and forward
+          * the request to it.
+          */
         case (context, Server.FindNodeForStoringData(data, srcRouteRef)) =>
           context.log.info(s"${context.self.path}\t:\tGot request for finding a node to store data ${data.name}")
           val randomActorToQuery = findRandomActor(slotToAddress, actorHashesList, context)
@@ -72,6 +99,10 @@ object Parent {
           randomActorToQuery ! Server.FindNodeForStoringData(data, srcRouteRef)
           Behaviors.same
 
+          /*
+          * This actor has received a request for finding a movie. It will find a random node in the ring and forward the
+          * request to it.
+          */
         case (context, Server.FindSuccessorToFindData(name, srcRouteRef)) =>
           context.log.info(s"${context.self.path}\t:\tGot request to find data $name")
           val randomActorToQuery = findRandomActor(slotToAddress, actorHashesList, context)
@@ -79,6 +110,10 @@ object Parent {
           randomActorToQuery ! Server.FindSuccessorToFindData(name, srcRouteRef)
           Behaviors.same
 
+          /*
+          * This actor has received a request to get all movies. It will randomly select a node and forward the request
+          * to it.
+          */
         case (context, Server.GetAllData(replyTo)) =>
           context.log.info(s"${context.self.path}\t:\tGot request to find all data")
           val randomActorToQuery = findRandomActor(slotToAddress, actorHashesList, context)
@@ -87,6 +122,12 @@ object Parent {
           Behaviors.same
       }
 
+  /**
+   * This function will spawn all chord nodes in the ring
+   * @param m The number of finger table entries
+   * @param n The maximum number of nodes in the ring
+   * @param context Execution context of this actor
+   */
   def spawnServers(m: Int, n: Int, context: ActorContext[Command]): mutable.Map[Int, ActorRef[Server.Command]] = {
     val newSlotToAddress = mutable.Map[Int, ActorRef[Server.Command]]()
 
@@ -113,6 +154,12 @@ object Parent {
     newSlotToAddress
   }
 
+  /**
+   * Use the scala.util.Random class to randomly select a chord node in the ring.
+   * @param slotToAddress map (ring slot hash to actor ref)
+   * @param actorHashesList List of actor node hashes
+   * @param context actor execution context
+   */
   def findRandomActor(slotToAddress: mutable.Map[Int, ActorRef[Server.Command]], actorHashesList: List[Int],
                      context: ActorContext[Command]): ActorRef[Server.Command] = {
     val randomIndex = scala.util.Random.nextInt(actorHashesList.size)
@@ -152,6 +199,10 @@ object Parent {
     }
   }
 
+  /**
+   * This function will write collected states from all actors to a yaml file on disk
+   * @param dumps The list of actor states collected
+   */
   def dumpState(dumps: List[Server.StateToDump]): Unit = {
     val outputFile = new FileWriter(new File("src/main/resources/outputs/chordState.yml"))
     val objectMapper = new ObjectMapper(new YAMLFactory().enable(Feature.INDENT_ARRAYS))

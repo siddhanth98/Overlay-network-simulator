@@ -1,10 +1,12 @@
 package com.chord
 
-import java.io.{File, FileWriter}
-
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
 
+/**
+ * This actor keeps track of the number of successful and failed requests made by its parent client actor
+ * and sends the results to another actor which aggregates results of all clients
+ */
 object Counter {
   trait Command
   final case object Success extends Command
@@ -14,6 +16,15 @@ object Counter {
   def apply(clientRef: ActorRef[HttpClient.Command], aggregator: ActorRef[Aggregator.Aggregate]): Behavior[Command] =
     process(clientRef, aggregator, 0, 0)
 
+  /**
+   * Defines the behavior of the counter actor
+   * @param clientRef Reference of the parent client actor
+   * @param aggregator Reference of the aggregator actor to which the counter will send its results
+   *                   once simulation finishes
+   * @param successCount number of successful requests (query requests which successfully found movies) made till now
+   * @param failCount number of failed requests (query requests which could not find the movie in the chord ring) made
+   *                  till now
+   */
   def process(clientRef: ActorRef[HttpClient.Command], aggregator: ActorRef[Aggregator.Aggregate],
               successCount: Int, failCount: Int): Behavior[Command] =
     Behaviors.receive{
@@ -31,11 +42,4 @@ object Counter {
         clientRef ! HttpClient.FinishCounter
         Behaviors.stopped
     }
-
-  def dumpState(clientRef: ActorRef[HttpClient.Command], successCount: Int, failCount: Int): Unit = {
-    val outputFile = new FileWriter(new File("src/main/resources/outputs/client_data.txt"), true)
-    outputFile.append(s"\n$clientRef:\nsuccess(movies successfully found) count = $successCount ; " +
-      s"failure(movies could not be found) count = $failCount\n")
-    outputFile.close()
-  }
 }

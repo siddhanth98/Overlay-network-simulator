@@ -4,7 +4,9 @@ import com.chord.Server.{AllData, Data, DataActionResponse, DataResponseFailed, 
 import spray.json.RootJsonFormat
 import spray.json.DefaultJsonProtocol
 
-
+/**
+ * Spray json (de)marshaller to handle conversion between scala objects and json objects passed in http requests.
+ */
 object JsonFormats {
   import DefaultJsonProtocol._
   implicit val allDataJsonFormat: RootJsonFormat[AllData] = jsonFormat1(AllData)
