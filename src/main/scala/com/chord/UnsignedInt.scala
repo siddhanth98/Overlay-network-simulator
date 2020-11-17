@@ -3,6 +3,11 @@ package com.chord
 import com.google.common.primitives.UnsignedInteger
 import java.math.BigInteger
 
+/**
+ * This implementation allows each node in the chord ring network to have an unsigned integer value
+ * between 0 and 2^m^-1 inclusive.
+ * This source implementation was borrowed from the following github repository : https://gist.github.com/ktoso/4363757
+ */
 class UnsignedInt(val intValue: Int) extends AnyVal {
 
   import UnsignedInteger._
