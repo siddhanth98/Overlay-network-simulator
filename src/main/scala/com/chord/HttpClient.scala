@@ -24,7 +24,7 @@ object HttpClient {
 
   final val logger: Logger = LoggerFactory.getLogger(HttpClient.getClass)
 
-  def apply(aggregator: ActorRef[Aggregator.Command]): Behavior[Command] = Behaviors.setup{context =>
+  def apply(aggregator: ActorRef[Aggregator.Aggregate]): Behavior[Command] = Behaviors.setup{context =>
     context.log.info(s"${context.self.path}\t:\tI was just created by the simulation. Creating a counter for me...")
     val counterActor = context.spawn(Counter(context.self, aggregator), "myCounter")
     process(counterActive=true, counterActor)

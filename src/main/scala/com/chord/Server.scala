@@ -97,6 +97,8 @@ object Server {
   final case class FindPredecessorToUpdate(i: Int, id: Int, replyTo: ActorRef[Server.Command]) extends Command
   final case class PredecessorUpdateResponse(i: Int, predecessor: ActorRef[Server.Command], predecessorHashValue: Int) extends Command
   final case object PredecessorUpdateResponseError extends Command
+  final case class AllPredecessorsUpdated(replyTo: ActorRef[AllPredecessorsUpdatedResponse]) extends Command
+  final case class AllPredecessorsUpdatedResponse(response: Boolean) extends Command
 
   /**
    * Object and message which define the node's state to be dumped in a yaml file
@@ -111,8 +113,9 @@ object Server {
   def apply(m: Int, slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Server.Command]],
             successor: ActorRef[Server.Command], predecessor: ActorRef[Server.Command]): Behavior[Command] = {
 
-      def process(movies: Set[Data], m: Int, slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Server.Command]],
-                  successor: ActorRef[Server.Command], predecessor: ActorRef[Server.Command]): Behavior[Command] = {
+      def process(predecessorsUpdated: Boolean, movies: Set[Data], m: Int, slotToHash: mutable.Map[Int, Int],
+                  hashToRef: mutable.Map[Int, ActorRef[Server.Command]], successor: ActorRef[Server.Command],
+                  predecessor: ActorRef[Server.Command]): Behavior[Command] = {
         Behaviors.receive((context, message) => {
           val hashValue = getSignedHash(m, context.self.path.toString)
 
@@ -130,7 +133,7 @@ object Server {
                   newHashToRef += (hashValue -> context.self)
                 })
                 context.log.info(s"${context.self.path}\t:\tInitialized finger tables\t:\tslotToHash = $newSlotToHash\thashToRef = $newHashToRef")
-                process(movies, m, newSlotToHash, newHashToRef, successorNodeRef, predecessorNodeRef)
+                process(predecessorsUpdated=true, movies, m, newSlotToHash, newHashToRef, successorNodeRef, predecessorNodeRef)
               }
 
               else {
@@ -164,7 +167,7 @@ object Server {
                   case Failure(_) => ActorStateResponseError
                 }
 
-                process(movies, m, newSlotToHash, newHashToRef, successorNodeRef, predecessorNodeRef)
+                process(predecessorsUpdated, movies, m, newSlotToHash, newHashToRef, successorNodeRef, predecessorNodeRef)
               }
 
             case Parent.DumpActorState(replyTo) =>
@@ -208,15 +211,15 @@ object Server {
 
             case SetPredecessor(newPredecessor) =>
               context.log.info(s"${context.self.path}\t:\tgot $newPredecessor as my new predecessor. Resetting $predecessor to $newPredecessor")
-              process(movies, m, slotToHash, hashToRef, successor, newPredecessor)
+              process(predecessorsUpdated, movies, m, slotToHash, hashToRef, successor, newPredecessor)
 
             case UpdateFingerTableAndSuccessor(newSuccessor, i, newHash, newHashRef) =>
               context.log.info(s"${context.self.path}\t:\tgot new finger tables:\tslotToHash = ${slotToHash+(i -> newHash)}\thashToRef = ${hashToRef+(newHash -> newHashRef)}")
               newSuccessor match {
-                case null => process(movies, m, slotToHash+(i -> newHash), hashToRef+(newHash -> newHashRef), successor, predecessor)
+                case null => process(predecessorsUpdated, movies, m, slotToHash+(i -> newHash), hashToRef+(newHash -> newHashRef), successor, predecessor)
                 case _ =>
                   context.log.info(s"${context.self.path}\t:\tgot $newSuccessor as my new successor. Resetting successor $successor to $newSuccessor")
-                  process(movies, m, slotToHash+(i -> newHash), hashToRef+(newHash -> newHashRef), newSuccessor, predecessor)
+                  process(predecessorsUpdated, movies, m, slotToHash+(i -> newHash), hashToRef+(newHash -> newHashRef), newSuccessor, predecessor)
               }
 
             case GetActorState(replyTo) =>
@@ -241,7 +244,7 @@ object Server {
             case StoreData(data, id, srcRouteRef) =>
               context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tGot request to store data with key $id")
               srcRouteRef ! DataStorageResponseSuccess(s"Movie '${data.name}' uploaded successfully")
-              process(movies+data, m, slotToHash, hashToRef, successor, predecessor)
+              process(predecessorsUpdated, movies+data, m, slotToHash, hashToRef, successor, predecessor)
 
             case FindSuccessorToFindData(name, srcRouteRef) =>
               findSuccessorToFindData(name, getSignedHash(m, name), srcRouteRef, hashValue, slotToHash(0), context, slotToHash, hashToRef)
@@ -310,7 +313,7 @@ object Server {
               if (i < m) {
                 context.log.info(s"${context.self.path}\t:\t(i = $i) => (fingerNode = $newSuccessor\t;\thash = $newSuccessorHashValue)")
                 successor ! FindSuccessor(i+1, ((hashValue+Math.pow(2, i+1).round) % Math.pow(2, m)).toInt, successor, context.self, hashValue)
-                process(movies, m, slotToHash+(i->newSuccessorHashValue), hashToRef+(newSuccessorHashValue->newSuccessor), successor, predecessor)
+                process(predecessorsUpdated, movies, m, slotToHash+(i->newSuccessorHashValue), hashToRef+(newSuccessorHashValue->newSuccessor), successor, predecessor)
               }
               else {
                 context.log.info(s"${context.self.path}\t:\tInitialized finger tables: \nslotToHash - $slotToHash\nhashToRef - $hashToRef")
@@ -346,10 +349,15 @@ object Server {
                 context.log.info(s"${context.self.path}\t:\tFinding predecessor ${i + 1} to update")
                 findPredecessorToUpdate(i + 1, getSignedHashOfRingSlotNumber(m, (hashValue - Math.pow(2, i + 1).round).toInt),
                   context.self, hashValue, slotToHash(0), context, slotToHash, hashToRef)
+                Behaviors.same
               }
               else {
                 context.log.info(s"${context.self.path}\t:\tFinished telling all my predecessors to update their finger tables")
+                process(predecessorsUpdated=true, movies, m, slotToHash, hashToRef, successor, predecessor)
               }
+
+            case AllPredecessorsUpdated(replyTo) =>
+              replyTo ! AllPredecessorsUpdatedResponse(predecessorsUpdated)
               Behaviors.same
           }
         })
@@ -542,6 +550,6 @@ object Server {
     def getCurrentState(hashValue: Int, slotToHash: mutable.Map[Int, Int], movies: Set[Data]): StateToDump =
       StateToDump(Map("hash" -> hashValue), List(slotToHash), movies)
 
-    process(Set.empty, m, slotToHash, hashToRef, successor, predecessor)
+    process(predecessorsUpdated=false, Set.empty, m, slotToHash, hashToRef, successor, predecessor)
   }
 }

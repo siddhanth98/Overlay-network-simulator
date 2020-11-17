@@ -4,17 +4,21 @@ import java.io.File
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 
-import akka.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
+import akka.actor.testkit.typed.scaladsl.{LoggingTestKit, ScalaTestWithActorTestKit}
 import akka.actor.typed.ActorRef
+import akka.actor.typed.scaladsl.AskPattern.Askable
+import com.chord.HttpClient.{GetMovie, PostMovie}
 import com.chord.Parent.Join
-import com.chord.Server.{ActorStateResponse, Command, GetActorState}
+import com.chord.Server.{ActorStateResponse, AllPredecessorsUpdated, AllPredecessorsUpdatedResponse, Command, GetActorState}
 import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.wordspec.AnyWordSpecLike
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.mutable
 import scala.math.BigInt.javaBigInteger2bigInt
 
 class ChordNodeTest extends ScalaTestWithActorTestKit with AnyWordSpecLike {
+  val logger: Logger = LoggerFactory.getLogger(classOf[ChordNodeTest])
   val config: Config =
     ConfigFactory.parseFile(new File("src/main/resources/configuration/test.conf"))
   val m: Int = config.getInt("app.NUMBER_OF_FINGERS")
@@ -22,7 +26,7 @@ class ChordNodeTest extends ScalaTestWithActorTestKit with AnyWordSpecLike {
   "First Chord Node" must {
     "have all finger table entries reference itself" in {
       val nodeProbe = createTestProbe[ActorStateResponse]()
-      val node = spawn(Server(m, mutable.Map.empty, mutable.Map.empty, null, null), "MyChordNode")
+      val node = spawn(Server(m, mutable.Map.empty, mutable.Map.empty, null, null), "TestChordNode")
       val nodeHash = getSignedHash(m, node.path.toString)
       node ! Join(node, node)
       node ! GetActorState(nodeProbe.ref)
@@ -39,29 +43,30 @@ class ChordNodeTest extends ScalaTestWithActorTestKit with AnyWordSpecLike {
   "Each of two chord nodes" must {
     "reference each other as successor and predecessor" in {
       val nodeProbe = createTestProbe[ActorStateResponse]()
+
       val node1 = spawn(Server(m, mutable.Map.empty, mutable.Map.empty, null, null), "node1")
       val node2 = spawn(Server(m, mutable.Map.empty, mutable.Map.empty, null, null), "node2")
-      val node1Hash = getSignedHash(m, node1.path.toString)
-      val node2Hash = getSignedHash(m, node2.path.toString)
 
       node1 ! Join(node1, node1)
       node2 ! Join(node1, node1)
 
-      val expectedSlotToHashNode1 = mutable.Map[Int, Int]()
-      val expectedHashToRefNode1 = mutable.Map[Int, ActorRef[Command]]()
-      val expectedSlotToHashNode2 = mutable.Map[Int, Int]()
-      val expectedHashtoRefNode2 = mutable.Map[Int, ActorRef[Command]]()
+      Thread.sleep(500)
 
-      (1 to m).foreach(i => expectedSlotToHashNode1 += (i-1 -> node1Hash))
-      expectedHashToRefNode1 += (node1Hash -> node1)
+      node1 ! GetActorState(nodeProbe.ref)
+      val node1State = nodeProbe.receiveMessage()
+      node2 ! GetActorState(nodeProbe.ref)
+      val node2State = nodeProbe.receiveMessage()
 
-      nodeProbe.expectMessage(ActorStateResponse(expectedSlotToHashNode1, expectedHashToRefNode1, node1Hash, node2))
-      /*val node2State = nodeProbe.receiveMessage()
+      logger.info(s"node1 successor is ${node1State.hashToRef(node1State.slotToHash(0))}")
+      logger.info(s"node1 predecessor is ${node1State.predecessor}")
+
+      logger.info(s"node2 successor is ${node2State.hashToRef(node2State.slotToHash(0))}")
+      logger.info(s"node2 predecessor is ${node2State.predecessor}")
 
       node1State.predecessor should === (node2)
       node2State.predecessor should === (node1)
       node1State.hashToRef(node1State.slotToHash(0)) should === (node2)
-      node2State.hashToRef(node2State.slotToHash(0)) should === (node1)*/
+      node2State.hashToRef(node2State.slotToHash(0)) should === (node1)
     }
   }
 

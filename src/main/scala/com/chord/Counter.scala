@@ -11,10 +11,10 @@ object Counter {
   final case object Failure extends Command
   final case object Finish extends Command
 
-  def apply(clientRef: ActorRef[HttpClient.Command], aggregator: ActorRef[Aggregator.Command]): Behavior[Command] =
+  def apply(clientRef: ActorRef[HttpClient.Command], aggregator: ActorRef[Aggregator.Aggregate]): Behavior[Command] =
     process(clientRef, aggregator, 0, 0)
 
-  def process(clientRef: ActorRef[HttpClient.Command], aggregator: ActorRef[Aggregator.Command],
+  def process(clientRef: ActorRef[HttpClient.Command], aggregator: ActorRef[Aggregator.Aggregate],
               successCount: Int, failCount: Int): Behavior[Command] =
     Behaviors.receive{
       case (context, Success) =>

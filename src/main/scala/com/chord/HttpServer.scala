@@ -32,12 +32,7 @@ object HttpServer {
    * Then link the user routes to each of the actors and
    * start the http server using the helper method above
    */
-  def apply(): Unit = {
-    val config = ConfigFactory.parseFile(new File("src/main/resources/configuration/serverconfig.conf"))
-    val m = config.getInt("app.NUMBER_OF_FINGERS")
-    val n = config.getInt("app.NUMBER_OF_NODES")
-    val dumpPeriod = config.getInt("app.DUMP_PERIOD_IN_SEC")
-
+  def apply(m: Int, n: Int, dumpPeriod: Int): Unit = {
     val guardianBehavior = Behaviors.setup[Nothing] {context =>
       val parentActor = context.spawn(Parent(m, n, dumpPeriod), "Parent")
       context.log.info(s"${context.self.path}\t:\tSpawned parent actor - $parentActor")
@@ -48,5 +43,11 @@ object HttpServer {
     val _ = ActorSystem[Nothing](guardianBehavior, "ChordActorSystem")
   }
 
-  def main(args: Array[String]): Unit = HttpServer()
+  def main(args: Array[String]): Unit = {
+    val config = ConfigFactory.parseFile(new File("src/main/resources/configuration/serverconfig.conf"))
+    val m = config.getInt("app.NUMBER_OF_FINGERS")
+    val n = config.getInt("app.NUMBER_OF_NODES")
+    val dumpPeriod = config.getInt("app.DUMP_PERIOD_IN_SEC")
+    HttpServer(m, n, dumpPeriod)
+  }
 }
