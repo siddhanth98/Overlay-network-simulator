@@ -7,7 +7,7 @@
 `sbt clean compile "runMain com.chord.HttpServer"`
 This will start the server instance on port 8080, along with setting up the required number of nodes in the chord ring in the background, as specified in the `src/main/resources/configuration/serverconfig.conf` file. This will be evident from all the logs appearing in the terminal.
 
-- Then in another terminal, start the client program from the project root directory:
+- Then once the server has started and all nodes have been initialized, in another terminal, start the client program from the project root directory:
 `sbt "runMain com.chord.Main"`
 This will start the main simulation program, which runs for a specific amount of time as obtained from the `src/main/resources/configuration/clientconfig.conf` file, then it will create the required number of client actors (specified in the same configuration file) which keep on making POST/GET requests to the server as explained below.
 

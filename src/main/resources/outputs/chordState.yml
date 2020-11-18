@@ -1,69 +1,2105 @@
 ---
  -
   nodeHash:
+    hash: 841
+  fingerTable:
+   -
+    8: 73
+    2: 854
+    5: 873
+    4: 858
+    7: 969
+    1: 854
+    9: 352
+    3: 854
+    6: 906
+    0: 842
+  movies:
+   -
+    name: "Movie150"
+    size: 528
+    genre: "Action-Thriller"
+   -
+    name: "Movie16"
+    size: 397
+    genre: "Action"
+   -
+    name: "Movie264"
+    size: 135
+    genre: "Action"
+ -
+  nodeHash:
+    hash: 789
+  fingerTable:
+   -
+    8: 28
+    2: 804
+    5: 830
+    4: 830
+    7: 923
+    1: 804
+    9: 911
+    3: 804
+    6: 854
+    0: 804
+  movies:
+   -
+    name: "Movie404"
+    size: 211
+    genre: "Comedy"
+ -
+  nodeHash:
+    hash: 924
+  fingerTable:
+   -
+    8: 166
+    2: 933
+    5: 958
+    4: 940
+    7: 28
+    1: 933
+    9: 414
+    3: 933
+    6: 1022
+    0: 933
+  movies: []
+ -
+  nodeHash:
+    hash: 933
+  fingerTable:
+   -
+    8: 166
+    2: 940
+    5: 966
+    4: 958
+    7: 44
+    1: 940
+    9: 940
+    3: 941
+    6: 16
+    0: 940
+  movies:
+   -
+    name: "Movie620"
+    size: 95
+    genre: "romantic-Comedy"
+ -
+  nodeHash:
+    hash: 143
+  fingerTable:
+   -
+    8: 403
+    2: 166
+    5: 177
+    4: 166
+    7: 272
+    1: 166
+    9: 177
+    3: 166
+    6: 210
+    0: 166
+  movies: []
+ -
+  nodeHash:
+    hash: 906
+  fingerTable:
+   -
+    8: 143
+    2: 911
+    5: 940
+    4: 923
+    7: 16
+    1: 911
+    9: 403
+    3: 923
+    6: 974
+    0: 911
+  movies:
+   -
+    name: "Movie541"
+    size: 997
+    genre: "Action-Thriller"
+   -
+    name: "Movie491"
+    size: 9
+    genre: "Action-Thriller"
+   -
+    name: "Movie541"
+    size: 734
+    genre: "romantic-Comedy"
+ -
+  nodeHash:
+    hash: 520
+  fingerTable:
+   -
+    8: 789
+    2: 524
+    5: 559
+    4: 537
+    7: 653
+    1: 524
+    9: 16
+    3: 528
+    6: 611
+    0: 524
+  movies: []
+ -
+  nodeHash:
+    hash: 365
+  fingerTable:
+   -
+    8: 621
+    2: 374
+    5: 403
+    4: 382
+    7: 504
+    1: 374
+    9: 966
+    3: 374
+    6: 442
+    0: 374
+  movies:
+   -
+    name: "Movie51"
+    size: 794
+    genre: "Action"
+   -
+    name: "Movie882"
+    size: 447
+    genre: "Action-Thriller"
+ -
+  nodeHash:
+    hash: 966
+  fingerTable:
+   -
+    8: 248
+    2: 974
+    5: 36
+    4: 985
+    7: 73
+    1: 969
+    9: 44
+    3: 974
+    6: 36
+    0: 969
+  movies:
+   -
+    name: "Movie322"
+    size: 118
+    genre: "Action"
+   -
+    name: "Movie322"
+    size: 533
+    genre: "Action-Thriller"
+   -
+    name: "Movie894"
+    size: 252
+    genre: "Comedy"
+ -
+  nodeHash:
+    hash: 625
+  fingerTable:
+   -
+    8: 906
+    2: 653
+    5: 662
+    4: 653
+    7: 764
+    1: 653
+    9: 123
+    3: 653
+    6: 729
+    0: 653
+  movies: []
+ -
+  nodeHash:
+    hash: 948
+  fingerTable:
+   -
+    8: 185
+    2: 958
+    5: 985
+    4: 966
+    7: 53
+    1: 958
+    9: 442
+    3: 958
+    6: 1022
+    0: 958
+  movies: []
+ -
+  nodeHash:
+    hash: 374
+  fingerTable:
+   -
+    8: 653
+    2: 382
+    5: 409
+    4: 391
+    7: 504
+    1: 382
+    9: 906
+    3: 382
+    6: 442
+    0: 382
+  movies:
+   -
+    name: "Movie148"
+    size: 1
+    genre: "romantic-Comedy"
+   -
+    name: "Movie534"
+    size: 922
+    genre: "romantic-Comedy"
+ -
+  nodeHash:
+    hash: 248
+  fingerTable:
+   -
+    8: 504
+    2: 259
+    5: 365
+    4: 272
+    7: 382
+    1: 259
+    9: 764
+    3: 259
+    6: 321
+    0: 259
+  movies: []
+ -
+  nodeHash:
+    hash: 308
+  fingerTable:
+   -
+    8: 568
+    2: 321
+    5: 352
+    4: 332
+    7: 442
+    1: 321
+    9: 830
+    3: 321
+    6: 374
+    0: 321
+  movies: []
+ -
+  nodeHash:
+    hash: 51
+  fingerTable:
+   -
+    8: 308
+    2: 56
+    5: 89
+    4: 67
+    7: 185
+    1: 53
+    9: 568
+    3: 65
+    6: 123
+    0: 53
+  movies: []
+ -
+  nodeHash:
+    hash: 858
+  fingerTable:
+   -
+    8: 93
+    2: 871
+    5: 906
+    4: 906
+    7: 1022
+    1: 871
+    9: 352
+    3: 871
+    6: 923
+    0: 871
+  movies:
+   -
+    name: "Movie434"
+    size: 801
+    genre: "Action"
+ -
+  nodeHash:
+    hash: 93
+  fingerTable:
+   -
+    8: 352
+    2: 97
+    5: 128
+    4: 123
+    7: 232
+    1: 97
+    9: 123
+    3: 123
+    6: 166
+    0: 97
+  movies: []
+ -
+  nodeHash:
+    hash: 272
+  fingerTable:
+   -
+    8: 528
+    2: 292
+    5: 308
+    4: 292
+    7: 403
+    1: 274
+    9: 789
+    3: 292
+    6: 352
+    0: 274
+  movies:
+   -
+    name: "Movie555"
+    size: 282
+    genre: "romantic-Comedy"
+   -
+    name: "Movie273"
+    size: 171
+    genre: "romantic-Comedy"
+   -
+    name: "Movie810"
+    size: 113
+    genre: "romantic-Comedy"
+ -
+  nodeHash:
+    hash: 48
+  fingerTable:
+   -
+    8: 308
+    2: 53
+    5: 89
+    4: 65
+    7: 177
+    1: 51
+    9: 568
+    3: 56
+    6: 123
+    0: 51
+  movies: []
+ -
+  nodeHash:
+    hash: 969
+  fingerTable:
+   -
+    8: 210
+    2: 974
+    5: 16
+    4: 985
+    7: 73
+    1: 974
+    9: 469
+    3: 985
+    6: 16
+    0: 974
+  movies: []
+ -
+  nodeHash:
+    hash: 36
+  fingerTable:
+   -
+    8: 292
+    2: 44
+    5: 73
+    4: 53
+    7: 166
+    1: 44
+    9: 51
+    3: 44
+    6: 128
+    0: 44
+  movies: []
+ -
+  nodeHash:
+    hash: 332
+  fingerTable:
+   -
+    8: 611
+    2: 352
+    5: 365
+    4: 352
+    7: 469
+    1: 352
+    9: 854
+    3: 352
+    6: 403
+    0: 352
+  movies:
+   -
+    name: "Movie809"
+    size: 926
+    genre: "Action-Thriller"
+   -
+    name: "Movie324"
+    size: 0
+    genre: "Action"
+ -
+  nodeHash:
+    hash: 745
+  fingerTable:
+   -
+    8: 1022
+    2: 764
+    5: 789
+    4: 764
+    7: 873
+    1: 764
+    9: 246
+    3: 764
+    6: 830
+    0: 764
+  movies:
+   -
+    name: "Movie514"
+    size: 287
+    genre: "Comedy"
+ -
+  nodeHash:
+    hash: 410
+  fingerTable:
+   -
+    8: 683
+    2: 414
+    5: 442
+    4: 427
+    7: 551
+    1: 414
+    9: 923
+    3: 427
+    6: 504
+    0: 414
+  movies: []
+ -
+  nodeHash:
+    hash: 123
+  fingerTable:
+   -
+    8: 382
+    2: 128
+    5: 166
+    4: 143
+    7: 259
+    1: 128
+    9: 653
+    3: 132
+    6: 246
+    0: 128
+  movies:
+   -
+    name: "Movie254"
+    size: 39
+    genre: "romantic-Comedy"
+   -
+    name: "Movie751"
+    size: 130
+    genre: "Action"
+   -
+    name: "Movie751"
+    size: 360
+    genre: "Action-Thriller"
+   -
+    name: "Movie843"
+    size: 797
+    genre: "Action-Thriller"
+ -
+  nodeHash:
+    hash: 524
+  fingerTable:
+   -
+    8: 789
+    2: 528
+    5: 559
+    4: 551
+    7: 653
+    1: 528
+    9: 559
+    3: 537
+    6: 662
+    0: 528
+  movies: []
+ -
+  nodeHash:
+    hash: 392
+  fingerTable:
+   -
+    8: 653
+    2: 403
+    5: 427
+    4: 409
+    7: 520
+    1: 403
+    9: 403
+    3: 403
+    6: 456
+    0: 403
+  movies: []
+ -
+  nodeHash:
+    hash: 132
+  fingerTable:
+   -
+    8: 391
+    2: 143
+    5: 166
+    4: 166
+    7: 272
+    1: 143
+    9: 177
+    3: 143
+    6: 210
+    0: 143
+  movies: []
+ -
+  nodeHash:
+    hash: 518
+  fingerTable:
+   -
+    8: 775
+    2: 524
+    5: 551
+    4: 537
+    7: 653
+    1: 520
+    9: 16
+    3: 528
+    6: 662
+    0: 520
+  movies:
+   -
+    name: "Movie892"
+    size: 71
+    genre: "Comedy"
+   -
+    name: "Movie945"
+    size: 938
+    genre: "romantic-Comedy"
+ -
+  nodeHash:
+    hash: 177
+  fingerTable:
+   -
+    8: 442
+    2: 185
+    5: 210
+    4: 210
+    7: 308
+    1: 185
+    9: 729
+    3: 185
+    6: 246
+    0: 185
+  movies: []
+ -
+  nodeHash:
+    hash: 210
+  fingerTable:
+   -
+    8: 469
+    2: 232
+    5: 246
+    4: 232
+    7: 352
+    1: 232
+    9: 729
+    3: 232
+    6: 274
+    0: 232
+  movies:
+   -
+    name: "Movie623"
+    size: 428
+    genre: "Comedy"
+   -
+    name: "Movie468"
+    size: 157
+    genre: "Action-Thriller"
+   -
+    name: "Movie701"
+    size: 439
+    genre: "Action"
+ -
+  nodeHash:
+    hash: 551
+  fingerTable:
+   -
+    8: 830
+    2: 559
+    5: 611
+    4: 568
+    7: 683
+    1: 559
+    9: 44
+    3: 559
+    6: 621
+    0: 559
+  movies:
+   -
+    name: "Movie344"
+    size: 598
+    genre: "Action-Thriller"
+   -
+    name: "Movie537"
+    size: 800
+    genre: "Action-Thriller"
+ -
+  nodeHash:
+    hash: 246
+  fingerTable:
+   -
+    8: 504
+    2: 259
+    5: 352
+    4: 272
+    7: 374
+    1: 248
+    9: 764
+    3: 259
+    6: 321
+    0: 248
+  movies:
+   -
+    name: "Movie959"
+    size: 985
+    genre: "romantic-Comedy"
+ -
+  nodeHash:
+    hash: 58
+  fingerTable:
+   -
+    8: 321
+    2: 65
+    5: 93
+    4: 89
+    7: 210
+    1: 65
+    9: 611
+    3: 67
+    6: 123
+    0: 65
+  movies:
+   -
+    name: "Movie802"
+    size: 734
+    genre: "Comedy"
+ -
+  nodeHash:
+    hash: 775
+  fingerTable:
+   -
+    8: 16
+    2: 789
+    5: 830
+    4: 804
+    7: 906
+    1: 789
+    9: 272
+    3: 789
+    6: 841
+    0: 789
+  movies: []
+ -
+  nodeHash:
+    hash: 28
+  fingerTable:
+   -
+    8: 365
+    2: 36
+    5: 65
+    4: 44
+    7: 166
+    1: 36
+    9: 665
+    3: 36
+    6: 93
+    0: 29
+  movies:
+   -
+    name: "Movie409"
+    size: 288
+    genre: "Action"
+ -
+  nodeHash:
+    hash: 611
+  fingerTable:
+   -
+    8: 871
+    2: 621
+    5: 653
+    4: 653
+    7: 745
+    1: 621
+    9: 123
+    3: 621
+    6: 683
+    0: 621
+  movies:
+   -
+    name: "Movie506"
+    size: 327
+    genre: "Action"
+   -
+    name: "Movie921"
+    size: 161
+    genre: "Comedy"
+   -
+    name: "Movie288"
+    size: 605
+    genre: "romantic-Comedy"
+   -
+    name: "Movie233"
+    size: 403
+    genre: "Comedy"
+   -
+    name: "Movie673"
+    size: 60
+    genre: "Comedy"
+   -
+    name: "Movie988"
+    size: 298
+    genre: "romantic-Comedy"
+   -
+    name: "Movie428"
+    size: 636
+    genre: "Comedy"
+   -
+    name: "Movie474"
+    size: 930
+    genre: "Action"
+ -
+  nodeHash:
+    hash: 958
+  fingerTable:
+   -
+    8: 248
+    2: 966
+    5: 16
+    4: 974
+    7: 65
+    1: 966
+    9: 448
+    3: 966
+    6: 1022
+    0: 966
+  movies:
+   -
+    name: "Movie104"
+    size: 377
+    genre: "Comedy"
+ -
+  nodeHash:
     hash: 1
   fingerTable:
    -
-    2: 8
-    1: 4
-    3: 8
-    0: 4
+    8: 259
+    2: 16
+    5: 34
+    4: 28
+    7: 132
+    1: 16
+    9: 518
+    3: 16
+    6: 65
+    0: 16
   movies: []
  -
   nodeHash:
-    hash: 8
+    hash: 665
   fingerTable:
    -
-    2: 12
-    1: 12
-    3: 0
-    0: 12
-  movies:
-   -
-    name: "Avatar"
-    size: 1000
-    genre: "Sci-fi"
- -
-  nodeHash:
-    hash: 14
-  fingerTable:
-   -
-    2: 4
-    1: 0
-    3: 8
-    0: 0
-  movies:
-   -
-    name: "Avatar2"
-    size: 2000
-    genre: "Sci-fi"
- -
-  nodeHash:
-    hash: 12
-  fingerTable:
-   -
-    2: 0
-    1: 14
-    3: 4
-    0: 14
+    8: 923
+    2: 683
+    5: 729
+    4: 683
+    7: 804
+    1: 683
+    9: 166
+    3: 683
+    6: 729
+    0: 683
   movies: []
  -
   nodeHash:
-    hash: 0
+    hash: 871
   fingerTable:
    -
-    2: 4
-    1: 4
-    3: 8
+    8: 128
+    2: 906
+    5: 906
+    4: 906
+    7: 36
+    1: 873
+    9: 958
+    3: 906
+    6: 940
+    0: 873
+  movies:
+   -
+    name: "Movie695"
+    size: 673
+    genre: "romantic-Comedy"
+   -
+    name: "Movie81"
+    size: 843
+    genre: "romantic-Comedy"
+ -
+  nodeHash:
+    hash: 662
+  fingerTable:
+   -
+    8: 923
+    2: 683
+    5: 729
+    4: 683
+    7: 804
+    1: 665
+    9: 166
+    3: 683
+    6: 729
+    0: 665
+  movies: []
+ -
+  nodeHash:
+    hash: 34
+  fingerTable:
+   -
+    8: 292
+    2: 44
+    5: 67
+    4: 51
+    7: 166
+    1: 36
+    9: 559
+    3: 44
+    6: 128
+    0: 36
+  movies: []
+ -
+  nodeHash:
+    hash: 321
+  fingerTable:
+   -
+    8: 611
+    2: 332
+    5: 365
+    4: 352
+    7: 456
+    1: 332
+    9: 841
+    3: 332
+    6: 391
+    0: 332
+  movies:
+   -
+    name: "Movie382"
+    size: 650
+    genre: "Action"
+   -
+    name: "Movie414"
+    size: 196
+    genre: "romantic-Comedy"
+   -
+    name: "Movie382"
+    size: 415
+    genre: "Action"
+ -
+  nodeHash:
+    hash: 940
+  fingerTable:
+   -
+    8: 185
+    2: 958
+    5: 974
+    4: 958
+    7: 44
+    1: 958
+    9: 442
+    3: 948
+    6: 16
+    0: 941
+  movies:
+   -
+    name: "Movie110"
+    size: 877
+    genre: "romantic-Comedy"
+   -
+    name: "Movie784"
+    size: 427
+    genre: "Action"
+ -
+  nodeHash:
+    hash: 16
+  fingerTable:
+   -
+    8: 272
+    2: 28
+    5: 48
+    4: 34
+    7: 166
+    1: 28
+    9: 528
+    3: 28
+    6: 89
+    0: 28
+  movies:
+   -
+    name: "Movie841"
+    size: 753
+    genre: "Action-Thriller"
+   -
+    name: "Movie974"
+    size: 591
+    genre: "Action-Thriller"
+   -
+    name: "Movie50"
+    size: 540
+    genre: "Action-Thriller"
+ -
+  nodeHash:
+    hash: 911
+  fingerTable:
+   -
+    8: 143
+    2: 923
+    5: 948
+    4: 933
+    7: 16
+    1: 923
+    9: 403
+    3: 923
+    6: 985
+    0: 923
+  movies: []
+ -
+  nodeHash:
+    hash: 985
+  fingerTable:
+   -
+    8: 232
+    2: 1022
+    5: 1022
+    4: 1022
+    7: 89
+    1: 1022
+    9: 1022
+    3: 1022
+    6: 28
+    0: 1022
+  movies:
+   -
+    name: "Movie356"
+    size: 589
+    genre: "Action"
+   -
+    name: "Movie916"
+    size: 182
+    genre: "romantic-Comedy"
+   -
+    name: "Movie356"
+    size: 347
+    genre: "Action-Thriller"
+ -
+  nodeHash:
+    hash: 653
+  fingerTable:
+   -
+    8: 911
+    2: 662
+    5: 729
+    4: 683
+    7: 789
+    1: 662
+    9: 143
+    3: 662
+    6: 729
+    0: 662
+  movies:
+   -
+    name: "Movie646"
+    size: 439
+    genre: "Action"
+   -
+    name: "Movie531"
+    size: 129
+    genre: "romantic-Comedy"
+   -
+    name: "Movie979"
+    size: 837
+    genre: "Action"
+   -
+    name: "Movie250"
+    size: 571
+    genre: "Action-Thriller"
+   -
+    name: "Movie250"
+    size: 420
+    genre: "romantic-Comedy"
+   -
+    name: "Movie456"
+    size: 986
+    genre: "Action-Thriller"
+   -
+    name: "Movie646"
+    size: 363
+    genre: "romantic-Comedy"
+   -
+    name: "Movie59"
+    size: 434
+    genre: "romantic-Comedy"
+   -
+    name: "Movie531"
+    size: 593
+    genre: "Action-Thriller"
+ -
+  nodeHash:
+    hash: 97
+  fingerTable:
+   -
+    8: 365
+    2: 123
+    5: 132
+    4: 123
+    7: 232
+    1: 123
+    9: 123
+    3: 123
+    6: 166
+    0: 123
+  movies:
+   -
+    name: "Movie436"
+    size: 452
+    genre: "Action-Thriller"
+ -
+  nodeHash:
+    hash: 417
+  fingerTable:
+   -
+    8: 729
+    2: 427
+    5: 456
+    4: 442
+    7: 551
+    1: 427
+    9: 427
+    3: 427
+    6: 524
+    0: 427
+  movies: []
+ -
+  nodeHash:
+    hash: 67
+  fingerTable:
+   -
+    8: 332
+    2: 73
+    5: 123
+    4: 89
+    7: 210
+    1: 73
+    9: 611
+    3: 89
+    6: 132
+    0: 73
+  movies: []
+ -
+  nodeHash:
+    hash: 73
+  fingerTable:
+   -
+    8: 332
+    2: 89
+    5: 128
+    4: 89
+    7: 210
+    1: 89
+    9: 625
+    3: 89
+    6: 143
+    0: 89
+  movies:
+   -
+    name: "Movie10"
+    size: 919
+    genre: "Action-Thriller"
+ -
+  nodeHash:
+    hash: 683
+  fingerTable:
+   -
+    8: 940
+    2: 729
+    5: 729
+    4: 729
+    7: 830
+    1: 729
+    9: 177
+    3: 729
+    6: 764
+    0: 729
+  movies:
+   -
+    name: "Movie244"
+    size: 82
+    genre: "Comedy"
+   -
+    name: "Movie639"
+    size: 587
+    genre: "romantic-Comedy"
+   -
+    name: "Movie376"
+    size: 947
+    genre: "Action-Thriller"
+ -
+  nodeHash:
+    hash: 764
+  fingerTable:
+   -
+    8: 1022
+    2: 775
+    5: 804
+    4: 789
+    7: 906
+    1: 775
+    9: 259
+    3: 775
+    6: 830
+    0: 775
+  movies:
+   -
+    name: "Movie801"
+    size: 148
+    genre: "Action"
+   -
+    name: "Movie320"
+    size: 97
+    genre: "Action-Thriller"
+   -
+    name: "Movie863"
+    size: 390
+    genre: "Action-Thriller"
+   -
+    name: "Movie553"
+    size: 418
+    genre: "romantic-Comedy"
+   -
+    name: "Movie14"
+    size: 799
+    genre: "romantic-Comedy"
+   -
+    name: "Movie746"
+    size: 554
+    genre: "Action-Thriller"
+ -
+  nodeHash:
+    hash: 504
+  fingerTable:
+   -
+    8: 764
+    2: 518
+    5: 537
+    4: 520
+    7: 653
+    1: 518
+    9: 1022
+    3: 518
+    6: 568
+    0: 518
+  movies:
+   -
+    name: "Movie554"
+    size: 873
+    genre: "romantic-Comedy"
+   -
+    name: "Movie550"
+    size: 460
+    genre: "Action"
+   -
+    name: "Movie554"
+    size: 866
+    genre: "Comedy"
+   -
+    name: "Movie710"
+    size: 490
+    genre: "Comedy"
+   -
+    name: "Movie167"
+    size: 346
+    genre: "Comedy"
+   -
+    name: "Movie353"
+    size: 630
+    genre: "Action-Thriller"
+   -
+    name: "Movie470"
+    size: 254
+    genre: "Action-Thriller"
+ -
+  nodeHash:
+    hash: 854
+  fingerTable:
+   -
+    8: 89
+    2: 858
+    5: 906
+    4: 871
+    7: 985
+    1: 858
+    9: 352
+    3: 871
+    6: 923
+    0: 858
+  movies: []
+ -
+  nodeHash:
+    hash: 414
+  fingerTable:
+   -
+    8: 683
+    2: 427
+    5: 448
+    4: 442
+    7: 551
+    1: 417
+    9: 933
+    3: 427
+    6: 504
+    0: 417
+  movies: []
+ -
+  nodeHash:
+    hash: 456
+  fingerTable:
+   -
+    8: 729
+    2: 469
+    5: 504
+    4: 504
+    7: 611
+    1: 469
+    9: 969
+    3: 469
+    6: 520
+    0: 469
+  movies:
+   -
+    name: "Movie182"
+    size: 758
+    genre: "Action"
+   -
+    name: "Movie128"
+    size: 2
+    genre: "romantic-Comedy"
+   -
+    name: "Movie706"
+    size: 435
+    genre: "Action-Thriller"
+ -
+  nodeHash:
+    hash: 65
+  fingerTable:
+   -
+    8: 321
+    2: 73
+    5: 97
+    4: 93
+    7: 248
+    1: 67
+    9: 665
+    3: 73
+    6: 132
+    0: 67
+  movies:
+   -
+    name: "Movie833"
+    size: 22
+    genre: "Action"
+   -
+    name: "Movie169"
+    size: 367
+    genre: "Comedy"
+   -
+    name: "Movie272"
+    size: 536
+    genre: "Comedy"
+   -
+    name: "Movie536"
+    size: 252
+    genre: "romantic-Comedy"
+ -
+  nodeHash:
+    hash: 29
+  fingerTable:
+   -
+    8: 352
+    2: 34
+    5: 65
+    4: 48
+    7: 166
+    1: 34
+    9: 51
+    3: 44
+    6: 93
+    0: 34
+  movies: []
+ -
+  nodeHash:
+    hash: 842
+  fingerTable:
+   -
+    8: 89
+    2: 854
+    5: 966
+    4: 858
+    7: 974
+    1: 854
+    9: 911
+    3: 854
+    6: 906
+    0: 854
+  movies: []
+ -
+  nodeHash:
+    hash: 528
+  fingerTable:
+   -
+    8: 789
+    2: 537
+    5: 568
+    4: 551
+    7: 662
+    1: 537
+    9: 559
+    3: 537
+    6: 662
+    0: 537
+  movies: []
+ -
+  nodeHash:
+    hash: 537
+  fingerTable:
+   -
+    8: 804
+    2: 551
+    5: 625
+    4: 559
+    7: 665
+    1: 551
+    9: 28
+    3: 551
+    6: 611
+    0: 551
+  movies:
+   -
+    name: "Movie842"
+    size: 393
+    genre: "Action"
+ -
+  nodeHash:
+    hash: 232
+  fingerTable:
+   -
+    8: 504
+    2: 246
+    5: 272
+    4: 248
+    7: 365
+    1: 246
+    9: 745
+    3: 246
+    6: 308
+    0: 246
+  movies:
+   -
+    name: "Movie269"
+    size: 416
+    genre: "Comedy"
+   -
+    name: "Movie229"
+    size: 387
+    genre: "Action-Thriller"
+   -
+    name: "Movie859"
+    size: 383
+    genre: "Action"
+   -
+    name: "Movie269"
+    size: 62
+    genre: "romantic-Comedy"
+ -
+  nodeHash:
+    hash: 259
+  fingerTable:
+   -
+    8: 518
+    2: 272
+    5: 292
+    4: 292
+    7: 391
+    1: 272
+    9: 292
+    3: 272
+    6: 332
+    0: 272
+  movies:
+   -
+    name: "Movie112"
+    size: 926
+    genre: "Action"
+ -
+  nodeHash:
+    hash: 292
+  fingerTable:
+   -
+    8: 551
+    2: 308
+    5: 332
+    4: 308
+    7: 427
+    1: 308
+    9: 804
+    3: 308
+    6: 365
+    0: 308
+  movies:
+   -
+    name: "Movie349"
+    size: 476
+    genre: "Action"
+ -
+  nodeHash:
+    hash: 274
+  fingerTable:
+   -
+    8: 537
+    2: 292
+    5: 308
+    4: 292
+    7: 403
+    1: 292
+    9: 789
+    3: 292
+    6: 352
+    0: 292
+  movies: []
+ -
+  nodeHash:
+    hash: 166
+  fingerTable:
+   -
+    8: 427
+    2: 185
+    5: 248
+    4: 185
+    7: 352
+    1: 185
+    9: 177
+    3: 185
+    6: 246
+    0: 167
+  movies:
+   -
+    name: "Movie413"
+    size: 549
+    genre: "Action-Thriller"
+ -
+  nodeHash:
+    hash: 830
+  fingerTable:
+   -
+    8: 65
+    2: 841
+    5: 871
+    4: 854
+    7: 958
+    1: 841
+    9: 321
+    3: 841
+    6: 911
+    0: 841
+  movies:
+   -
+    name: "Movie827"
+    size: 632
+    genre: "Action"
+   -
+    name: "Movie797"
+    size: 568
+    genre: "Comedy"
+   -
+    name: "Movie719"
+    size: 829
+    genre: "Action-Thriller"
+   -
+    name: "Movie111"
+    size: 543
+    genre: "Action-Thriller"
+   -
+    name: "Movie184"
+    size: 304
+    genre: "Action"
+   -
+    name: "Movie184"
+    size: 785
+    genre: "Action-Thriller"
+   -
+    name: "Movie719"
+    size: 987
+    genre: "romantic-Comedy"
+ -
+  nodeHash:
+    hash: 974
+  fingerTable:
+   -
+    8: 210
+    2: 985
+    5: 16
+    4: 16
+    7: 93
+    1: 985
+    9: 469
+    3: 985
+    6: 16
+    0: 985
+  movies: []
+ -
+  nodeHash:
+    hash: 621
+  fingerTable:
+   -
+    8: 906
+    2: 625
+    5: 653
+    4: 653
+    7: 764
+    1: 625
+    9: 123
+    3: 653
+    6: 729
+    0: 625
+  movies: []
+ -
+  nodeHash:
+    hash: 352
+  fingerTable:
+   -
+    8: 611
+    2: 365
+    5: 391
+    4: 374
+    7: 504
+    1: 365
+    9: 871
+    3: 365
+    6: 417
+    0: 365
+  movies:
+   -
+    name: "Movie535"
+    size: 159
+    genre: "romantic-Comedy"
+   -
+    name: "Movie927"
+    size: 971
+    genre: "Action-Thriller"
+ -
+  nodeHash:
+    hash: 923
+  fingerTable:
+   -
+    8: 166
+    2: 933
+    5: 958
+    4: 940
+    7: 28
+    1: 933
+    9: 414
+    3: 933
+    6: 16
+    0: 924
+  movies: []
+ -
+  nodeHash:
+    hash: 56
+  fingerTable:
+   -
+    8: 321
+    2: 65
+    5: 89
+    4: 73
+    7: 185
+    1: 58
+    9: 568
+    3: 65
+    6: 123
+    0: 58
+  movies: []
+ -
+  nodeHash:
+    hash: 448
+  fingerTable:
+   -
+    8: 729
+    2: 456
+    5: 504
+    4: 469
+    7: 611
+    1: 456
+    9: 966
+    3: 456
+    6: 518
+    0: 456
+  movies:
+   -
+    name: "Movie678"
+    size: 752
+    genre: "Action-Thriller"
+ -
+  nodeHash:
+    hash: 89
+  fingerTable:
+   -
+    8: 352
+    2: 93
+    5: 123
+    4: 123
+    7: 232
+    1: 93
+    9: 123
+    3: 97
+    6: 166
+    0: 93
+  movies:
+   -
+    name: "Movie443"
+    size: 681
+    genre: "romantic-Comedy"
+   -
+    name: "Movie533"
+    size: 155
+    genre: "romantic-Comedy"
+ -
+  nodeHash:
+    hash: 44
+  fingerTable:
+   -
+    8: 365
+    2: 48
+    5: 93
+    4: 65
+    7: 177
+    1: 48
+    9: 51
+    3: 53
+    6: 128
+    0: 48
+  movies:
+   -
+    name: "Movie920"
+    size: 67
+    genre: "romantic-Comedy"
+   -
+    name: "Movie692"
+    size: 591
+    genre: "romantic-Comedy"
+   -
+    name: "Movie612"
+    size: 95
+    genre: "Action-Thriller"
+ -
+  nodeHash:
+    hash: 1022
+  fingerTable:
+   -
+    8: 259
+    2: 16
+    5: 34
+    4: 16
+    7: 128
+    1: 1
+    9: 518
+    3: 16
+    6: 65
     0: 1
+  movies:
+   -
+    name: "Movie885"
+    size: 577
+    genre: "romantic-Comedy"
+   -
+    name: "Movie961"
+    size: 652
+    genre: "Action"
+   -
+    name: "Movie768"
+    size: 716
+    genre: "Action-Thriller"
+   -
+    name: "Movie44"
+    size: 976
+    genre: "Comedy"
+   -
+    name: "Movie906"
+    size: 761
+    genre: "romantic-Comedy"
+ -
+  nodeHash:
+    hash: 403
+  fingerTable:
+   -
+    8: 662
+    2: 409
+    5: 442
+    4: 427
+    7: 537
+    1: 409
+    9: 427
+    3: 414
+    6: 469
+    0: 409
+  movies:
+   -
+    name: "Movie789"
+    size: 250
+    genre: "romantic-Comedy"
+   -
+    name: "Movie467"
+    size: 765
+    genre: "romantic-Comedy"
+   -
+    name: "Movie919"
+    size: 321
+    genre: "Action"
+ -
+  nodeHash:
+    hash: 53
+  fingerTable:
+   -
+    8: 365
+    2: 58
+    5: 89
+    4: 73
+    7: 185
+    1: 56
+    9: 568
+    3: 65
+    6: 123
+    0: 56
   movies: []
  -
   nodeHash:
-    hash: 4
+    hash: 382
   fingerTable:
    -
-    2: 8
-    1: 8
-    3: 8
-    0: 8
+    8: 653
+    2: 391
+    5: 414
+    4: 403
+    7: 518
+    1: 391
+    9: 906
+    3: 391
+    6: 448
+    0: 391
+  movies:
+   -
+    name: "Movie228"
+    size: 578
+    genre: "Action-Thriller"
+   -
+    name: "Movie582"
+    size: 972
+    genre: "romantic-Comedy"
+ -
+  nodeHash:
+    hash: 941
+  fingerTable:
+   -
+    8: 177
+    2: 948
+    5: 974
+    4: 958
+    7: 48
+    1: 948
+    9: 442
+    3: 958
+    6: 1022
+    0: 948
   movies: []
+ -
+  nodeHash:
+    hash: 804
+  fingerTable:
+   -
+    8: 36
+    2: 830
+    5: 841
+    4: 830
+    7: 933
+    1: 830
+    9: 292
+    3: 830
+    6: 871
+    0: 830
+  movies:
+   -
+    name: "Movie379"
+    size: 602
+    genre: "Comedy"
+   -
+    name: "Movie931"
+    size: 706
+    genre: "romantic-Comedy"
+   -
+    name: "Movie613"
+    size: 813
+    genre: "Comedy"
+   -
+    name: "Movie193"
+    size: 944
+    genre: "romantic-Comedy"
+ -
+  nodeHash:
+    hash: 185
+  fingerTable:
+   -
+    8: 442
+    2: 210
+    5: 232
+    4: 210
+    7: 321
+    1: 210
+    9: 729
+    3: 210
+    6: 259
+    0: 210
+  movies: []
+ -
+  nodeHash:
+    hash: 873
+  fingerTable:
+   -
+    8: 123
+    2: 906
+    5: 906
+    4: 906
+    7: 1022
+    1: 906
+    9: 365
+    3: 906
+    6: 940
+    0: 906
+  movies: []
+ -
+  nodeHash:
+    hash: 167
+  fingerTable:
+   -
+    8: 427
+    2: 177
+    5: 210
+    4: 185
+    7: 332
+    1: 177
+    9: 683
+    3: 177
+    6: 232
+    0: 177
+  movies:
+   -
+    name: "Movie440"
+    size: 627
+    genre: "Action"
+ -
+  nodeHash:
+    hash: 409
+  fingerTable:
+   -
+    8: 665
+    2: 414
+    5: 442
+    4: 427
+    7: 537
+    1: 414
+    9: 923
+    3: 417
+    6: 504
+    0: 410
+  movies:
+   -
+    name: "Movie963"
+    size: 918
+    genre: "romantic-Comedy"
+ -
+  nodeHash:
+    hash: 427
+  fingerTable:
+   -
+    8: 683
+    2: 442
+    5: 469
+    4: 448
+    7: 559
+    1: 442
+    9: 940
+    3: 442
+    6: 504
+    0: 442
+  movies:
+   -
+    name: "Movie658"
+    size: 582
+    genre: "Action-Thriller"
+   -
+    name: "Movie854"
+    size: 398
+    genre: "Comedy"
+ -
+  nodeHash:
+    hash: 391
+  fingerTable:
+   -
+    8: 653
+    2: 403
+    5: 427
+    4: 409
+    7: 520
+    1: 403
+    9: 403
+    3: 403
+    6: 456
+    0: 392
+  movies:
+   -
+    name: "Movie186"
+    size: 883
+    genre: "Action"
+   -
+    name: "Movie232"
+    size: 250
+    genre: "Comedy"
+ -
+  nodeHash:
+    hash: 128
+  fingerTable:
+   -
+    8: 391
+    2: 132
+    5: 166
+    4: 166
+    7: 259
+    1: 132
+    9: 653
+    3: 143
+    6: 248
+    0: 132
+  movies:
+   -
+    name: "Movie770"
+    size: 487
+    genre: "Action"
+ -
+  nodeHash:
+    hash: 469
+  fingerTable:
+   -
+    8: 729
+    2: 504
+    5: 504
+    4: 504
+    7: 611
+    1: 504
+    9: 504
+    3: 504
+    6: 537
+    0: 504
+  movies:
+   -
+    name: "Movie36"
+    size: 626
+    genre: "romantic-Comedy"
+   -
+    name: "Movie599"
+    size: 917
+    genre: "Action"
+ -
+  nodeHash:
+    hash: 729
+  fingerTable:
+   -
+    8: 985
+    2: 745
+    5: 764
+    4: 745
+    7: 858
+    1: 745
+    9: 232
+    3: 745
+    6: 804
+    0: 745
+  movies:
+   -
+    name: "Movie77"
+    size: 378
+    genre: "Action"
+   -
+    name: "Movie568"
+    size: 531
+    genre: "Comedy"
+ -
+  nodeHash:
+    hash: 559
+  fingerTable:
+   -
+    8: 830
+    2: 568
+    5: 625
+    4: 625
+    7: 729
+    1: 568
+    9: 568
+    3: 568
+    6: 625
+    0: 568
+  movies: []
+ -
+  nodeHash:
+    hash: 442
+  fingerTable:
+   -
+    8: 729
+    2: 448
+    5: 504
+    4: 469
+    7: 625
+    1: 448
+    9: 504
+    3: 456
+    6: 518
+    0: 448
+  movies:
+   -
+    name: "Movie922"
+    size: 214
+    genre: "Action-Thriller"
+ -
+  nodeHash:
+    hash: 568
+  fingerTable:
+   -
+    8: 830
+    2: 611
+    5: 611
+    4: 611
+    7: 729
+    1: 611
+    9: 611
+    3: 611
+    6: 653
+    0: 611
+  movies:
+   -
+    name: "Movie850"
+    size: 149
+    genre: "Action"
