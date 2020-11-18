@@ -1,1 +1,2 @@
-Success(%) = 0Failure(%) = 0
+Success = 50.0%
+Failure = 50.0%

@@ -1,23 +1,61 @@
 ---
  -
   nodeHash:
-    hash: 12
-  fingerTable:
-   -
-    2: 2
-    1: 2
-    3: 4
-    0: 2
-  movies: []
- -
-  nodeHash:
-    hash: 3
+    hash: 1
   fingerTable:
    -
     2: 8
-    1: 8
-    3: 11
+    1: 4
+    3: 8
     0: 4
+  movies: []
+ -
+  nodeHash:
+    hash: 8
+  fingerTable:
+   -
+    2: 12
+    1: 12
+    3: 0
+    0: 12
+  movies:
+   -
+    name: "Avatar"
+    size: 1000
+    genre: "Sci-fi"
+ -
+  nodeHash:
+    hash: 14
+  fingerTable:
+   -
+    2: 4
+    1: 0
+    3: 8
+    0: 0
+  movies:
+   -
+    name: "Avatar2"
+    size: 2000
+    genre: "Sci-fi"
+ -
+  nodeHash:
+    hash: 12
+  fingerTable:
+   -
+    2: 0
+    1: 14
+    3: 4
+    0: 14
+  movies: []
+ -
+  nodeHash:
+    hash: 0
+  fingerTable:
+   -
+    2: 4
+    1: 4
+    3: 8
+    0: 1
   movies: []
  -
   nodeHash:
@@ -29,89 +67,3 @@
     3: 8
     0: 8
   movies: []
- -
-  nodeHash:
-    hash: 11
-  fingerTable:
-   -
-    2: 2
-    1: 2
-    3: 3
-    0: 12
-  movies: []
- -
-  nodeHash:
-    hash: 2
-  fingerTable:
-   -
-    2: 8
-    1: 4
-    3: 11
-    0: 3
-  movies: []
- -
-  nodeHash:
-    hash: 8
-  fingerTable:
-   -
-    2: 12
-    1: 11
-    3: 2
-    0: 11
-  movies:
-   -
-    name: "movie101"
-    size: 156
-    genre: "Comedy"
-   -
-    name: "movie101"
-    size: 424
-    genre: "Action"
-   -
-    name: "movie101"
-    size: 716
-    genre: "Action-Thriller"
-   -
-    name: "movie101"
-    size: 753
-    genre: "Action"
-   -
-    name: "movie101"
-    size: 653
-    genre: "Action-Thriller"
-   -
-    name: "movie101"
-    size: 958
-    genre: "Action"
-   -
-    name: "movie101"
-    size: 665
-    genre: "Action-Thriller"
-   -
-    name: "movie101"
-    size: 546
-    genre: "Action-Thriller"
-   -
-    name: "movie101"
-    size: 608
-    genre: "romantic-Comedy"
-   -
-    name: "movie101"
-    size: 910
-    genre: "romantic-Comedy"
-   -
-    name: "movie101"
-    size: 475
-    genre: "romantic-Comedy"
-   -
-    name: "movie101"
-    size: 40
-    genre: "Action"
-   -
-    name: "movie101"
-    size: 883
-    genre: "Comedy"
-   -
-    name: "movie101"
-    size: 829
-    genre: "Action-Thriller"
