@@ -1,0 +1,12 @@
+Hi Siddhanth Venkateshwaran,
+
+Good job with your simulations. A level of randomization could have been introduced with the no. of server nodes in your ring.
+
+Your grade for HW3 is 16%.
+
+Comments:
++3% for the usage of typed Behaviors model for Akka actors.
++3% for a documenting your implementation and execution steps.
+
+Abhijeet Mohanty
+
