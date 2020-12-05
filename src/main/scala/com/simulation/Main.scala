@@ -1,9 +1,9 @@
-package com.chord
-
-import java.io.File
+package com.simulation
 
 import akka.actor.typed.ActorSystem
 import com.typesafe.config.ConfigFactory
+
+import java.io.File
 
 /**
  * This is the main driver object of the client side simulation (separate from the http server main driver)

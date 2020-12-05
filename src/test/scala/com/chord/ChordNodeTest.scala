@@ -3,14 +3,14 @@ package com.chord
 import java.io.File
 import java.nio.ByteBuffer
 import java.security.MessageDigest
-
 import akka.actor.testkit.typed.scaladsl.{LoggingTestKit, ScalaTestWithActorTestKit}
 import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.AskPattern.Askable
-import com.chord.HttpClient.{GetMovie, PostMovie}
+import com.client.HttpClient.{GetMovie, PostMovie}
 import com.chord.Parent.Join
-import com.chord.Server.{ActorStateResponse, AllPredecessorsUpdated, AllPredecessorsUpdatedResponse, Command, GetActorState}
+import com.chord.Node.{ActorStateResponse, AllPredecessorsUpdated, AllPredecessorsUpdatedResponse, Command, GetActorState}
 import com.typesafe.config.{Config, ConfigFactory}
+import com.utils.UnsignedInt
 import org.scalatest.wordspec.AnyWordSpecLike
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -30,7 +30,7 @@ class ChordNodeTest extends ScalaTestWithActorTestKit with AnyWordSpecLike {
   "First Chord Node" must {
     "have all finger table entries reference itself" in {
       val nodeProbe = createTestProbe[ActorStateResponse]()
-      val node = spawn(Server(m, mutable.Map.empty, mutable.Map.empty, null, null), "TestChordNode")
+      val node = spawn(Node(m, mutable.Map.empty, mutable.Map.empty, null, null), "TestChordNode")
       val nodeHash = getSignedHash(m, node.path.toString)
       node ! Join(node, node)
       node ! GetActorState(nodeProbe.ref)
@@ -48,8 +48,8 @@ class ChordNodeTest extends ScalaTestWithActorTestKit with AnyWordSpecLike {
     "reference each other as successor and predecessor" in {
       val nodeProbe = createTestProbe[ActorStateResponse]()
 
-      val node1 = spawn(Server(m, mutable.Map.empty, mutable.Map.empty, null, null), "node1")
-      val node2 = spawn(Server(m, mutable.Map.empty, mutable.Map.empty, null, null), "node2")
+      val node1 = spawn(Node(m, mutable.Map.empty, mutable.Map.empty, null, null), "node1")
+      val node2 = spawn(Node(m, mutable.Map.empty, mutable.Map.empty, null, null), "node2")
 
       node1 ! Join(node1, node1)
       node2 ! Join(node1, node1)

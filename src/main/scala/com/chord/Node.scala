@@ -1,16 +1,16 @@
 package com.chord
 
 import java.nio.ByteBuffer
-
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.util.Timeout
+import com.utils.UnsignedInt
 
 import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success}
 import java.security.MessageDigest
-
 import org.slf4j.{Logger, LoggerFactory}
+
 import scala.collection.mutable
 import scala.math.BigInt.javaBigInteger2bigInt
 
@@ -22,17 +22,17 @@ import scala.math.BigInt.javaBigInteger2bigInt
  * Though these are defined as mutable maps, they are not mutated inside any function, but
  * just passed around as arguments
  */
-object Server {
+object Node {
 
   trait Command
   sealed trait DataActionResponse extends Command with Parent.Command
-  final val logger: Logger = LoggerFactory.getLogger(Server.getClass)
+  final val logger: Logger = LoggerFactory.getLogger(Node.getClass)
 
   /**
    * Set of messages for querying and obtaining finger tables
    */
   final case class GetFingerTable(replyTo: ActorRef[FingerTableResponse]) extends Command
-  final case class FingerTableResponse(slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Server.Command]]) extends Command
+  final case class FingerTableResponse(slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Node.Command]]) extends Command
   final case object FingerTableResponseError extends Command
 
   /**
@@ -46,7 +46,7 @@ object Server {
    * Set of messages for querying and obtaining predecessor of a node
    */
   final case class GetPredecessor(replyTo: ActorRef[PredecessorResponse]) extends Command
-  final case class PredecessorResponse(predecessor: ActorRef[Server.Command]) extends Command
+  final case class PredecessorResponse(predecessor: ActorRef[Node.Command]) extends Command
   final case object PredecessorResponseError extends Command
   final case class SetPredecessor(predecessor: ActorRef[Command]) extends Command
 
@@ -55,8 +55,8 @@ object Server {
    * State will have the following - Finger table maps, hash value and predecessor actor reference
    */
   final case class GetActorState(replyTo: ActorRef[ActorStateResponse]) extends Command
-  final case class ActorStateResponse(slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Server.Command]],
-                                     hashValue: Int, predecessor: ActorRef[Server.Command]) extends Command
+  final case class ActorStateResponse(slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Node.Command]],
+                                      hashValue: Int, predecessor: ActorRef[Node.Command]) extends Command
   final case object ActorStateResponseError extends Command
 
   /**
@@ -103,8 +103,8 @@ object Server {
    * Set of messages to update finger tables of new node's predecessors
    */
   final case class UpdateFingerTable(newNode: ActorRef[Command], hashValue: Int, i: Int) extends Command
-  final case class FindPredecessorToUpdate(i: Int, id: Int, replyTo: ActorRef[Server.Command]) extends Command
-  final case class PredecessorUpdateResponse(i: Int, predecessor: ActorRef[Server.Command], predecessorHashValue: Int) extends Command
+  final case class FindPredecessorToUpdate(i: Int, id: Int, replyTo: ActorRef[Node.Command]) extends Command
+  final case class PredecessorUpdateResponse(i: Int, predecessor: ActorRef[Node.Command], predecessorHashValue: Int) extends Command
   final case object PredecessorUpdateResponseError extends Command
   final case class AllPredecessorsUpdated(replyTo: ActorRef[AllPredecessorsUpdatedResponse]) extends Command
   final case class AllPredecessorsUpdatedResponse(response: Boolean) extends Command
@@ -139,8 +139,8 @@ object Server {
    */
   def getSignedHashOfRingSlotNumber(m: Int, slotNo: Int): Int = (UnsignedInt(slotNo).bigIntegerValue % Math.pow(2, m).toInt).intValue()
 
-  def apply(m: Int, slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Server.Command]],
-            successor: ActorRef[Server.Command], predecessor: ActorRef[Server.Command]): Behavior[Command] = {
+  def apply(m: Int, slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Node.Command]],
+            successor: ActorRef[Node.Command], predecessor: ActorRef[Node.Command]): Behavior[Command] = {
 
     /**
      * This method defines the behavior of an actor node, subject to receipt of the above specified messages
@@ -154,8 +154,8 @@ object Server {
      * @param predecessor The predecessor actor's reference
      */
       def process(predecessorsUpdated: Boolean, movies: Set[Data], m: Int, slotToHash: mutable.Map[Int, Int],
-                  hashToRef: mutable.Map[Int, ActorRef[Server.Command]], successor: ActorRef[Server.Command],
-                  predecessor: ActorRef[Server.Command]): Behavior[Command] = {
+                  hashToRef: mutable.Map[Int, ActorRef[Node.Command]], successor: ActorRef[Node.Command],
+                  predecessor: ActorRef[Node.Command]): Behavior[Command] = {
         Behaviors.receive((context, message) => {
           val hashValue = getSignedHash(m, context.self.path.toString)
 
@@ -167,7 +167,7 @@ object Server {
                  */
                 context.log.info(s"${context.self.path}\t:\tI am the first node to join the ring")
                 val newSlotToHash = mutable.Map[Int, Int]()
-                val newHashToRef = mutable.Map[Int, ActorRef[Server.Command]]()
+                val newHashToRef = mutable.Map[Int, ActorRef[Node.Command]]()
                 (0 until m).foreach(i => {
                   newSlotToHash += (i -> hashValue)
                   newHashToRef += (hashValue -> context.self)
@@ -186,8 +186,8 @@ object Server {
                 context.log.info(s"${context.self.path}\t:\tAsking successor node $successorNodeRef for its state...")
                 implicit val timeout: Timeout = 5.seconds
                 val newSlotToHash = mutable.Map[Int, Int]()
-                val newHashToRef = mutable.Map[Int, ActorRef[Server.Command]]()
-                var newPredecessor: ActorRef[Server.Command] = null
+                val newHashToRef = mutable.Map[Int, ActorRef[Node.Command]]()
+                var newPredecessor: ActorRef[Node.Command] = null
 
                 context.ask(successorNodeRef, GetActorState) {
                   case x @ Success(ActorStateResponse(_, _, successorHashValue, successorPredecessor)) =>

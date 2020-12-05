@@ -1,11 +1,13 @@
-package com.chord
+package com.client
 
 import akka.actor.ActorSystem
-import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
+import akka.actor.typed.{ActorRef, Behavior}
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpMethods, HttpRequest, HttpResponse}
+import akka.http.scaladsl.model._
 import ch.qos.logback.classic.util.ContextInitializer
+import com.client
+import com.simulation.Aggregator
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.duration.DurationInt
@@ -32,7 +34,7 @@ object HttpClient {
 
   def apply(aggregator: ActorRef[Aggregator.Aggregate]): Behavior[Command] = Behaviors.setup{context =>
     context.log.info(s"${context.self.path}\t:\tI was just created by the simulation. Creating a counter for me...")
-    val counterActor = context.spawn(Counter(context.self, aggregator), "myCounter")
+    val counterActor = context.spawn(client.Counter(context.self, aggregator), "myCounter")
     process(counterActive=true, counterActor)
   }
 

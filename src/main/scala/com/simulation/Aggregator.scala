@@ -1,9 +1,10 @@
-package com.chord
+package com.simulation
+
+import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.{ActorRef, Behavior}
+import com.client.HttpClient
 
 import java.io.{File, FileWriter}
-
-import akka.actor.typed.{ActorRef, Behavior}
-import akka.actor.typed.scaladsl.Behaviors
 
 /**
  * This actor collects total number of successful and failed requests from all client counters once simulation ends and

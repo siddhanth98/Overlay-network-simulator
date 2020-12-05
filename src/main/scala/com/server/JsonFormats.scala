@@ -1,8 +1,7 @@
-package com.chord
+package com.server
 
-import com.chord.Server.{AllData, Data, DataActionResponse, DataResponseFailed, DataResponseSuccess, DataStorageResponseFailed, DataStorageResponseSuccess}
-import spray.json.RootJsonFormat
-import spray.json.DefaultJsonProtocol
+import com.chord.Node._
+import spray.json.{DefaultJsonProtocol, RootJsonFormat}
 
 /**
  * Spray json (de)marshaller to handle conversion between scala objects and json objects passed in http requests.

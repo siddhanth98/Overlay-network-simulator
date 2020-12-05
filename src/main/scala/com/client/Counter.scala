@@ -1,7 +1,8 @@
-package com.chord
+package com.client
 
-import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.Behaviors
+import akka.actor.typed.{ActorRef, Behavior}
+import com.simulation.Aggregator
 
 /**
  * This actor keeps track of the number of successful and failed requests made by its parent client actor

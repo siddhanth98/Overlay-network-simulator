@@ -1,6 +1,7 @@
-package com.chord
+package com.utils
 
 import com.google.common.primitives.UnsignedInteger
+
 import java.math.BigInteger
 
 /**
