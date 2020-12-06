@@ -34,9 +34,9 @@ object Parent {
     var axis = 'X'
 
     (0 until n).foreach {i =>
-      if (i == 0) nodes.append(context.spawn(Node(), s"node$i"))
+      if (i == 0) nodes.append(context.spawn(Node(i), s"node$i"))
       else {
-        nodes.append(context.spawn(Node(getRandomNode(nodes.toList), axis), s"node$i"))
+        nodes.append(context.spawn(Node(i, getRandomNode(nodes.toList), axis), s"node$i"))
         if (axis == 'X') axis = 'Y'
         else axis = 'X'
         Thread.sleep(500)
