@@ -31,11 +31,17 @@ object Parent {
    */
   def spawnNodes(n: Int, context: ActorContext[Command]): List[ActorRef[Node.Command]] = {
     val nodes = mutable.ListBuffer[ActorRef[Node.Command]]()
+    var axis = 'X'
 
-    /*(0 until n).foreach {i =>
+    (0 until n).foreach {i =>
       if (i == 0) nodes.append(context.spawn(Node(), s"node$i"))
-      else nodes.append(context.spawn(Node(getRandomNode(nodes.toList)), s"node$i"))
-    }*/
+      else {
+        nodes.append(context.spawn(Node(getRandomNode(nodes.toList), axis), s"node$i"))
+        if (axis == 'X') axis = 'Y'
+        else axis = 'X'
+        Thread.sleep(500)
+      }
+    }
     nodes.toList
   }
 
