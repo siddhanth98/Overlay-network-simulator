@@ -2,7 +2,7 @@ package com.can
 
 import akka.actor.Cancellable
 import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ActorRef, Behavior}
+import akka.actor.typed.{ActorRef, Behavior, Terminated}
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -26,8 +26,7 @@ object Node {
    */
   final case object NotifyMyNeighbours extends Command
   final case class NotifyNeighboursWithNeighbourMap(neighbourRef: ActorRef[Command],
-                                                    neighbours: Set[ActorRef[Command]]) extends Command
-  final case object CheckNeighbourStatus extends Command
+                                                    neighbours: Map[ActorRef[Command], Array[Array[Double]]]) extends Command
 
   /**
    * Message received by new node as part of the split join process
@@ -61,7 +60,10 @@ object Node {
     extends Command
   final case class TakeoverAck(failedNode: ActorRef[Command], node: ActorRef[Command]) extends Command
   final case class TakeoverNack(failedNode: ActorRef[Command]) extends Command
+  final case class TakeoverFinal(failedNode: ActorRef[Command], takeoverNode: ActorRef[Command],
+                                 takeoverNodeCoordinates: Array[Array[Double]]) extends Command
 
+  final case object Stop extends Command with Parent.Command
 
 
   /**
@@ -70,8 +72,7 @@ object Node {
   def apply(nodeId: Int): Behavior[Command] = Behaviors.setup{context =>
     context.log.info(s"${context.self.path}\t:\tI am the first node in the CAN")
     Behaviors.withTimers{timer =>
-      timer.startTimerAtFixedRate(NotifyMyNeighbours, 100.milliseconds)
-      timer.startTimerAtFixedRate(CheckNeighbourStatus, 120.milliseconds)
+      timer.startTimerWithFixedDelay(NotifyMyNeighbours, 3.seconds)
       process(nodeId, Set.empty, Array(Array(1, 100), Array(1, 100)), Map.empty, Map.empty, Map.empty)
     }
   }
@@ -83,8 +84,7 @@ object Node {
     context.log.info(s"${context.self.path}\t:\tI am not the first node to join the CAN. Got existing node $existingNodeRef")
     context.log.info(s"${context.self.path}\t:\tSending join message to $existingNodeRef")
     Behaviors.withTimers{timer =>
-      timer.startTimerAtFixedRate(NotifyMyNeighbours, 100.milliseconds)
-      timer.startTimerAtFixedRate(CheckNeighbourStatus, 120.milliseconds)
+      timer.startTimerWithFixedDelay(NotifyMyNeighbours, 3.seconds)
       existingNodeRef ! Join(context.self, splitAxis)
       process(nodeId, Set.empty, Array[Array[Double]](), Map.empty, Map.empty, Map.empty)
     }
@@ -94,15 +94,21 @@ object Node {
    * Defines the behavior of the node actor
    */
   def process(nodeId: Int, movies: Set[Movie], coordinates: Array[Array[Double]], neighbours: Map[ActorRef[Command], Array[Array[Double]]],
-              transitiveNeighbourMap: Map[ActorRef[Command], Set[ActorRef[Command]]], neighbourStatus: Map[ActorRef[Command], Boolean],
-              takeOverMode: Boolean=false, schedulerInstance: Cancellable=null):
-  Behavior[Command] = Behaviors.receive {
+              transitiveNeighbourMap: Map[ActorRef[Command], Map[ActorRef[Command], Array[Array[Double]]]], neighbourStatus: Map[ActorRef[Command], Boolean],
+              takeOverMode: Boolean=false, schedulerInstance: Cancellable=null, takeOverAckedNodes: Map[ActorRef[Command], Array[Array[Double]]]=Map.empty):
+  Behavior[Command] = Behaviors.receive[Command] {
+
+    case (context, Stop) =>
+      context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tReceived stop message from parent.")
+      Behaviors.stopped
+
         /*
          * Notifies neighbours about this node's current neighbours
          */
     case (context, NotifyMyNeighbours) =>
       context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tNotifying neighbours...")
-      neighbours.keySet.foreach(k => k ! NotifyNeighboursWithNeighbourMap(context.self, neighbours.keySet.filterNot(o => o != k)))
+
+      neighbours.keySet.foreach(k => k ! NotifyNeighboursWithNeighbourMap(context.self, neighbours))
       Behaviors.same
 
       /*
@@ -111,8 +117,11 @@ object Node {
     case (context, SplitResponse(newCoordinates, neighboursMap)) =>
       context.log.info(s"${context.self.path}\t:\tReceived split response message with new coordinates - [${printCoordinates(newCoordinates)}] " +
         s"and new neighbours refs - ${printNeighboursAndCoordinates(neighboursMap)}")
-      context.log.info(s"${context.self.path}\t:\tNotifying neighbours to update their neighbour maps...")
-      neighboursMap.keySet.foreach(k => k ! NotifyNeighboursToUpdateNeighbourMaps(context.self, newCoordinates))
+      context.log.info(s"${context.self.path}\t:\tWatching neighbours and notifying neighbours to update their neighbour maps...")
+      neighboursMap.keySet.foreach(k => {
+        context.watch(k)
+        k ! NotifyNeighboursToUpdateNeighbourMaps(context.self, newCoordinates)
+      })
       process(nodeId, movies, newCoordinates, neighboursMap, transitiveNeighbourMap, neighbourStatus)
 
       /*
@@ -146,6 +155,8 @@ object Node {
         context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tMy split coordinates are now - [${printCoordinates(mySplitCoordinates)}] and new neighbours" +
           s"are - ${printNeighboursAndCoordinates(myUpdatedNeighbours)}")
         context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tPutting $replyTo as my new neighbour")
+
+        (myUpdatedNeighbours.keySet+replyTo).foreach(n => context.watch(n))
         process(nodeId, movies, mySplitCoordinates, myUpdatedNeighbours+(replyTo -> newNodeCoordinates), transitiveNeighbourMap, neighbourStatus)
       }
 
@@ -170,78 +181,113 @@ object Node {
         context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tMy split coordinates are now - [${printCoordinates(mySplitCoordinates)}] and new neighbours" +
           s" are - ${printNeighboursAndCoordinates(myUpdatedNeighbours)}")
         context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tPutting $replyTo as my new neighbour")
+
+        (myUpdatedNeighbours.keySet+replyTo).foreach(n => context.watch(n))
         process(nodeId, movies, mySplitCoordinates, myUpdatedNeighbours+(replyTo -> newNodeCoordinates), transitiveNeighbourMap, neighbourStatus)
       }
 
-    case (context, CheckNeighbourStatus) =>
+    /*case (context, CheckNeighbourStatus) =>
       context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tChecking neighbour statuses...")
       val failedNeighbour = neighbourStatus.find(_._2 == false).map(_._1).orNull
-      if (failedNeighbour != null) context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tNode $failedNeighbour has failed")
+      if (failedNeighbour != null && transitiveNeighbourMap.contains(failedNeighbour) && transitiveNeighbourMap(failedNeighbour).size > 1) {
+        context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tNeighbouring node $failedNeighbour has failed")
 
-      val myArea = findMyArea(coordinates)
-      val randomTime = Random.nextInt(10)
-      context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tMy zone area is $myArea")
-      context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tWaiting for ${myArea+randomTime} milliseconds before initiating my takeover attempt")
-      implicit val executionContext: ExecutionContextExecutor = context.system.executionContext
+        val myArea = findMyArea(coordinates)
+        val randomTime = Random.nextInt(100)
+        context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tMy zone area is $myArea")
+        context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tWaiting for ${(myArea + randomTime)/100} milliseconds before initiating my takeover attempt")
+        implicit val executionContext: ExecutionContextExecutor = context.system.executionContext
 
-      val schInstance = context.system.scheduler.scheduleOnce((myArea+randomTime).milliseconds, () => {
-        transitiveNeighbourMap(failedNeighbour).foreach(n => n ! Takeover(failedNeighbour, myArea, nodeId, context.self))
-      })
+        val schInstance = context.system.scheduler.scheduleOnce(((myArea + randomTime)/100).milliseconds, () => {
+          transitiveNeighbourMap(failedNeighbour).keySet.foreach(n => {
+            if (n != context.self) n ! Takeover(failedNeighbour, myArea, nodeId, context.self)
+          })
+        })
 
-      val newNeighbourStatus = resetNeighbourStatus(neighbours.keySet, Map.empty)
-      process(nodeId, movies, coordinates, neighbours, transitiveNeighbourMap, newNeighbourStatus, takeOverMode=true,
-        schedulerInstance=schInstance)
+        val newNeighbourStatus = resetNeighbourStatus(neighbours.keySet, Map.empty)
+        process(nodeId, movies, coordinates, neighbours, transitiveNeighbourMap, newNeighbourStatus-failedNeighbour, takeOverMode = true,
+          schedulerInstance = schInstance)
+      }
+
+      else if (failedNeighbour != null && transitiveNeighbourMap.contains(failedNeighbour)) {
+        val newCoordinates = takeoverCoordinates(coordinates, neighbours(failedNeighbour))
+        context.log.info(s"${context.self.path}\t:\t$failedNeighbour doesn't have any neighbours other than me")
+        context.log.info(s"${context.self.path}\t:\tTaking over zone of $failedNeighbour with new coordinates ${printCoordinates(newCoordinates)}")
+        process(nodeId, movies, newCoordinates, neighbours, transitiveNeighbourMap, resetNeighbourStatus(neighbours.keySet, Map.empty)-failedNeighbour)
+      }
+
+      else process(nodeId, movies, coordinates, neighbours, transitiveNeighbourMap, resetNeighbourStatus(neighbours.keySet, Map.empty))*/
 
     case (context, Takeover(failedNode, area, requestingNodeId, requestingNodeRef)) =>
-      context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tGot request for takeover from transitive neighbour $requestingNodeRef")
+      context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tGot request for takeover of $failedNode from " +
+        s"transitive neighbour $requestingNodeRef")
 
       if (!takeOverMode) {
-        context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tcancelling my takeover attempt")
-        schedulerInstance.cancel()
-        process(nodeId, movies, coordinates, neighbours, transitiveNeighbourMap, neighbourStatus)
+        context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tcancelling my takeover attempt of $failedNode")
+        process(nodeId, movies, coordinates, neighbours, transitiveNeighbourMap-failedNode, neighbourStatus-failedNode)
       }
       else {
         val myArea = findMyArea(coordinates)
         if (area < myArea || (requestingNodeId < nodeId && area == myArea)) {
-          context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tcancelling my takeover attempt")
+          context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tcancelling my takeover attempt of $failedNode")
           schedulerInstance.cancel()
-          context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tSending takeover ACK to $requestingNodeRef")
+          context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tSending takeover ACK of $failedNode to $requestingNodeRef")
           requestingNodeRef ! TakeoverAck(failedNode, context.self)
         }
         else {
-          context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tsending takeover NACK to $requestingNodeRef")
+          context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tsending takeover NACK of $failedNode to $requestingNodeRef")
           requestingNodeRef ! TakeoverNack(failedNode)
         }
         process(nodeId, movies, coordinates, neighbours, transitiveNeighbourMap, neighbourStatus, takeOverMode, schedulerInstance)
       }
 
     case (context, TakeoverAck(failedNode, respondingNode)) =>
-      context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\treceived takeover ACK from $respondingNode")
-      if (transitiveNeighbourMap(failedNode).contains(respondingNode) && transitiveNeighbourMap(failedNode).size == 1) {
-        context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tI have received all ACK for taking over " +
+      context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\treceived takeover ACK of $failedNode from $respondingNode")
+      if (transitiveNeighbourMap(failedNode).contains(respondingNode) && transitiveNeighbourMap(failedNode).size == 2) {
+        context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tI have received all ACKs for taking over " +
           s"zone of $failedNode.")
-        process(nodeId, movies, takeoverCoordinates(coordinates, neighbours(failedNode)), neighbours, transitiveNeighbourMap, neighbourStatus)
+        context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tComputing new coordinates and " +
+          s"putting neighbours $failedNode in my neighbours map")
+        val newCoordinates = takeoverCoordinates(coordinates, neighbours(failedNode))
+        val myNewNeighbours = getFailedNodeNeighbours(neighbours, takeOverAckedNodes)
+
+        context.log.info(s"${context.self.path}\t:\tCurrent zone coordinates - ${printCoordinates(coordinates)}, taking over $failedNode and " +
+          s"changing zone coordinates to ${printCoordinates(newCoordinates)}")
+        context.log.info(s"${context.self.path} - ${printCoordinates(newCoordinates)}\t:\t new neighbours - ${printNeighboursAndCoordinates(myNewNeighbours-failedNode)}")
+        context.log.info(s"${context.self.path}\t:\tTelling all acked nodes about takeover success")
+        (takeOverAckedNodes+(respondingNode->transitiveNeighbourMap(failedNode)(respondingNode)))
+          .keySet
+          .foreach(tn => tn ! TakeoverFinal(failedNode, context.self, newCoordinates))
+        process(nodeId, movies, newCoordinates, myNewNeighbours-failedNode, transitiveNeighbourMap-failedNode, neighbourStatus)
       }
-      else
+      else {
+        context.log.info(s"${context.self.path}\t:\tACKs pending from [${printNeighboursAndCoordinates(transitiveNeighbourMap(failedNode)-respondingNode-context.self)}]")
         process(nodeId, movies, coordinates, neighbours,
-          transitiveNeighbourMap+(failedNode->(transitiveNeighbourMap(failedNode)-respondingNode)), neighbourStatus)
+          transitiveNeighbourMap+(failedNode->(transitiveNeighbourMap(failedNode)-respondingNode)), neighbourStatus,
+          takeOverAckedNodes=takeOverAckedNodes+(respondingNode->transitiveNeighbourMap(failedNode)(respondingNode)))
+      }
 
     case (context, TakeoverNack(failedNode)) =>
       context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tgot takeover NACK for taking over zone of $failedNode." +
         s"Cancelling my takeover attempt.")
-      schedulerInstance.cancel()
+      if (schedulerInstance != null) schedulerInstance.cancel()
       process(nodeId, movies, coordinates, neighbours, transitiveNeighbourMap, neighbourStatus)
+
+    case (context, TakeoverFinal(failedNode, takeoverNode, takeoverNodeCoordinates)) =>
+      context.log.info(s"${context.self.path}\t:\t$takeoverNode is taking over zone of $failedNode. Updating my neighbours to include $takeoverNode")
+      context.log.info(s"${context.self.path}\t:\tnow my new neighbours are - ${printNeighboursAndCoordinates(neighbours+(takeoverNode->takeoverNodeCoordinates)-failedNode)}")
+      process(nodeId, movies, coordinates, neighbours+(takeoverNode->takeoverNodeCoordinates)-failedNode, transitiveNeighbourMap, neighbourStatus)
 
       /*
       * This node has a received a periodic update from one of its (existing/new) neighbours
       */
-    case (context, NotifyNeighboursWithNeighbourMap(neighbourRef, neighbourSet)) =>
+    case (context, NotifyNeighboursWithNeighbourMap(neighbourRef, neighbourCoordinates)) =>
       if (!neighbours.contains(neighbourRef))
         context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tReceived periodic update from new neighbour $neighbourRef")
       else
         context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tReceived periodic update from existing neighbour $neighbourRef")
-
-      process(nodeId, movies, coordinates, neighbours, transitiveNeighbourMap+(neighbourRef -> neighbourSet), neighbourStatus+(neighbourRef->true))
+      context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\t$neighbourRef sent me its neighbours")
+      process(nodeId, movies, coordinates, neighbours, transitiveNeighbourMap+(neighbourRef -> neighbourCoordinates), neighbourStatus+(neighbourRef->true))
 
       /*
       * After a neighbour split/new neighbour join, this node receives an update of the neighbouring zone's coordinates
@@ -251,12 +297,55 @@ object Node {
         s"${printCoordinates(neighbourCoordinates)} to update my neighbour coordinates")
       context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tMy current neighbours and coordinates are - ${printNeighboursAndCoordinates(neighbours)}")
       context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tNew neighbour coordinates are - ${printNeighboursAndCoordinates(neighbours+(neighbourRef->neighbourCoordinates))}")
+
+      if (!neighbours.contains(neighbourRef)) {
+        context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tWatching $neighbourRef")
+        context.watch(neighbourRef)
+      }
       process(nodeId, movies, coordinates, neighbours+(neighbourRef->neighbourCoordinates), transitiveNeighbourMap, neighbourStatus)
 
     case (context, RemoveNeighbours(neighbourRef)) =>
-      context.log.info(s"${context.self.path}\t:\tGot remove neighbour message from $neighbourRef")
+      context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tGot remove neighbour message from $neighbourRef")
+      context.watch(neighbourRef)
+      context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tWatching $neighbourRef")
       process(nodeId, movies, coordinates, neighbours-neighbourRef, transitiveNeighbourMap, neighbourStatus)
   }
+    .receiveSignal {
+      case x @ (context, Terminated(failedNode)) =>
+        val failedNodeRef = failedNode.unsafeUpcast[Command]
+
+        context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\t$failedNodeRef has failed.")
+
+        val myArea = findMyArea(coordinates)
+        val randomTime = Random.nextInt(10)
+        context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tMy zone area is $myArea")
+
+        if (transitiveNeighbourMap(failedNodeRef).size == 1) {
+          /* This node is the only neighbour of the failed node */
+          context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tI am the only neighbour of $failedNodeRef. Taking over its zone.")
+          val newCoordinates = takeoverCoordinates(coordinates, neighbours(failedNodeRef))
+          val newNeighbours = getFailedNodeNeighbours(neighbours, transitiveNeighbourMap(failedNodeRef))
+
+          context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tMy new zone coordinates are ${printCoordinates(newCoordinates)}")
+          context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tRevised set of neighbours are - ${printNeighboursAndCoordinates(newNeighbours)}")
+
+          process(nodeId, movies, newCoordinates, newNeighbours-failedNodeRef, transitiveNeighbourMap-failedNodeRef, neighbourStatus)
+        }
+
+        else {
+          /* The failed node has other neighbours. Initiate takeover mechanism */
+          context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tWaiting for ${(myArea+randomTime)/100} milliseconds before initiating takeover.")
+
+          implicit val executionContextExecutor: ExecutionContextExecutor = context.executionContext
+          val schInstance = context.system.scheduler.scheduleOnce(((myArea+randomTime)/100).milliseconds, () => {
+            transitiveNeighbourMap(failedNodeRef).keySet.foreach(tn => {
+              if (tn != context.self) tn ! Takeover(failedNodeRef, myArea, nodeId, context.self)
+            })
+          })
+          process(nodeId, movies, coordinates, neighbours, transitiveNeighbourMap, neighbourStatus, takeOverMode=true,
+            schedulerInstance=schInstance)
+        }
+    }
 
   /**
    * Given the neighbours coordinates and a pair of start-end coordinates, this function will return the set of all existing neighbours
@@ -406,7 +495,7 @@ object Node {
   }
 
   def printCoordinates(coordinates: Array[Array[Double]]): String = {
-    if (coordinates(0).isEmpty) ""
+    if (coordinates.isEmpty || coordinates(0).isEmpty) ""
     else s"[(${coordinates(0).mkString(" ")}), (${coordinates(1).mkString(" ")})]"
   }
 
@@ -434,5 +523,14 @@ object Node {
       Array(java.lang.Double.min(takeoverNodeStartX, failedNodeStartX), java.lang.Double.max(takeoverNodeEndX, failedNodeEndX)),
       Array(java.lang.Double.min(takeoverNodeStartY, failedNodeStartY), java.lang.Double.max(takeoverNodeEndY, failedNodeEndY))
     )
+  }
+
+  @tailrec
+  def getFailedNodeNeighbours(myNeighbours: Map[ActorRef[Command], Array[Array[Double]]],
+                              failedNodeNeighbours: Map[ActorRef[Command], Array[Array[Double]]]):
+  Map[ActorRef[Command], Array[Array[Double]]] = {
+    if (failedNodeNeighbours.isEmpty) myNeighbours
+    else getFailedNodeNeighbours(myNeighbours+(failedNodeNeighbours.keySet.head -> failedNodeNeighbours(failedNodeNeighbours.keySet.head)),
+      failedNodeNeighbours-failedNodeNeighbours.keySet.head)
   }
 }

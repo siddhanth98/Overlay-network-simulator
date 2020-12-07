@@ -4,6 +4,7 @@ import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
 
 import scala.collection.mutable
+import scala.concurrent.duration.DurationInt
 import scala.util.Random
 
 /**
@@ -19,9 +20,31 @@ object Parent {
    */
   final case class GetExistingNode(replyTo: ActorRef[Node.Command]) extends Command
 
+  final case object TerminateOrJoinNode extends Command
+
   def apply(n: Int): Behavior[Command] = Behaviors.setup{context =>
     val nodes = spawnNodes(n, context)
-    Behaviors.empty
+
+    Behaviors.withTimers { timer =>
+      timer.startTimerWithFixedDelay(TerminateOrJoinNode, 20.seconds)
+      process(nodes, nodeJoinFlag=true, axis='X')
+    }
+  }
+
+  def process(nodes: List[ActorRef[Node.Command]], nodeJoinFlag: Boolean, axis: Character): Behavior[Command] = Behaviors.receive {
+    case (context, TerminateOrJoinNode) =>
+      if (nodeJoinFlag) {
+        val newNode = context.spawn(Node(nodes.size+1, getRandomNode(nodes), axis), s"node${Random.nextInt(10000)}")
+        context.log.info(s"${context.self.path}\t:\tCreating node $newNode")
+        process(nodes:+newNode, nodeJoinFlag=false, if (axis=='X') 'Y' else 'X')
+      }
+      else {
+        val randomIndex = Random.nextInt(nodes.size)
+        val randomNode = nodes(randomIndex)
+        context.log.info(s"${context.self.path}\t:\tStopping node $randomNode")
+        randomNode ! Node.Stop
+        process(nodes.slice(0, randomIndex)++nodes.slice(randomIndex+1, nodes.size), nodeJoinFlag=true, if (axis=='X') 'Y' else 'X')
+      }
   }
 
   /**
