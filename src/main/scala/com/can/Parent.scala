@@ -43,7 +43,7 @@ object Parent {
         val randomNode = nodes(randomIndex)
         context.log.info(s"${context.self.path}\t:\tStopping node $randomNode")
         randomNode ! Node.Stop
-        process(nodes.slice(0, randomIndex)++nodes.slice(randomIndex+1, nodes.size), nodeJoinFlag=true, if (axis=='X') 'Y' else 'X')
+        process(nodes.slice(0, randomIndex)++nodes.slice(randomIndex+1, nodes.size), nodeJoinFlag=true, axis)
       }
   }
 
