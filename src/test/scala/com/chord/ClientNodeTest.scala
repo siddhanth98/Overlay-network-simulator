@@ -18,9 +18,6 @@ class ClientNodeTest extends ScalaTestWithActorTestKit with AnyWordSpecLike {
   val logger: Logger = LoggerFactory.getLogger(classOf[ChordNodeTest])
   val config: Config =
     ConfigFactory.parseFile(new File("src/main/resources/configuration/test.conf"))
-  val m: Int = config.getInt("app.NUMBER_OF_FINGERS")
-  val n: Int = config.getInt("app.NUMBER_OF_NODES")
-  val dumpPeriod: Int = config.getInt("app.DUMP_PERIOD_IN_SECONDS")
   val numberOfClients: Int = config.getInt("app.NUMBER_OF_CLIENTS")
   val movie1Name: String = config.getString("app.MOVIE1.MOVIE_NAME")
   val movie1Size: Int = config.getInt("app.MOVIE1.MOVIE_SIZE")
@@ -35,7 +32,7 @@ class ClientNodeTest extends ScalaTestWithActorTestKit with AnyWordSpecLike {
    * Before all tests are run, start the http server and post 2 movies in it to be tested.
    */
   override def beforeAll(): Unit = {
-    HttpServer(m, n, dumpPeriod)
+    HttpServer(config)
     Thread.sleep(1000)
     client ! PostMovie(movie1Name, movie1Size, movie1Genre)
     client ! PostMovie(movie2Name, movie2Size, movie2Genre)

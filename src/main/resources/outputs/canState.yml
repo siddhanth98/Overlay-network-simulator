@@ -1,0 +1,165 @@
+---
+Actor[akka://ChordActorSystem/user/Parent/node1#499635296]:
+  coordinates_2D: "(startX=50.0, endX=100.0), (startY=1.0, endY=50.0)"
+  Movies: []
+  Replica:
+    Actor[akka://ChordActorSystem/user/Parent/node0#676817040]:
+     -
+      name: "Movie992"
+      size: 635
+      genre: "Action"
+     -
+      name: "Movie78"
+      size: 513
+      genre: "Action"
+     -
+      name: "Movie509"
+      size: 605
+      genre: "Action"
+     -
+      name: "Movie634"
+      size: 766
+      genre: "Comedy"
+    Actor[akka://ChordActorSystem/user/Parent/node2#-1770525124]:
+     -
+      name: "Movie623"
+      size: 787
+      genre: "Action"
+     -
+      name: "Movie231"
+      size: 316
+      genre: "romantic-Comedy"
+     -
+      name: "Movie276"
+      size: 958
+      genre: "romantic-Comedy"
+    Actor[akka://ChordActorSystem/user/Parent/node3#-1393902007]:
+     -
+      name: "Movie366"
+      size: 762
+      genre: "Action"
+     -
+      name: "Movie826"
+      size: 299
+      genre: "Action"
+     -
+      name: "Movie876"
+      size: 367
+      genre: "Action-Thriller"
+Actor[akka://ChordActorSystem/user/Parent/node0#676817040]:
+  coordinates_2D: "(startX=1.0, endX=50.0), (startY=1.0, endY=50.0)"
+  Movies:
+   -
+    name: "Movie992"
+    size: 635
+    genre: "Action"
+   -
+    name: "Movie78"
+    size: 513
+    genre: "Action"
+   -
+    name: "Movie509"
+    size: 605
+    genre: "Action"
+   -
+    name: "Movie634"
+    size: 766
+    genre: "Comedy"
+  Replica:
+    Actor[akka://ChordActorSystem/user/Parent/node1#499635296]: []
+    Actor[akka://ChordActorSystem/user/Parent/node4#-1129250107]: []
+Actor[akka://ChordActorSystem/user/Parent/node3#-1393902007]:
+  coordinates_2D: "(startX=74.5, endX=100.0), (startY=50.0, endY=100.0)"
+  Movies:
+   -
+    name: "Movie366"
+    size: 762
+    genre: "Action"
+   -
+    name: "Movie826"
+    size: 299
+    genre: "Action"
+   -
+    name: "Movie876"
+    size: 367
+    genre: "Action-Thriller"
+  Replica:
+    Actor[akka://ChordActorSystem/user/Parent/node1#499635296]: []
+    Actor[akka://ChordActorSystem/user/Parent/node2#-1770525124]:
+     -
+      name: "Movie623"
+      size: 787
+      genre: "Action"
+     -
+      name: "Movie231"
+      size: 316
+      genre: "romantic-Comedy"
+     -
+      name: "Movie276"
+      size: 958
+      genre: "romantic-Comedy"
+Actor[akka://ChordActorSystem/user/Parent/node4#-1129250107]:
+  coordinates_2D: "(startX=1.0, endX=50.0), (startY=50.0, endY=100.0)"
+  Movies: []
+  Replica:
+    Actor[akka://ChordActorSystem/user/Parent/node0#676817040]:
+     -
+      name: "Movie992"
+      size: 635
+      genre: "Action"
+     -
+      name: "Movie78"
+      size: 513
+      genre: "Action"
+     -
+      name: "Movie509"
+      size: 605
+      genre: "Action"
+     -
+      name: "Movie634"
+      size: 766
+      genre: "Comedy"
+    Actor[akka://ChordActorSystem/user/Parent/node2#-1770525124]:
+     -
+      name: "Movie623"
+      size: 787
+      genre: "Action"
+     -
+      name: "Movie231"
+      size: 316
+      genre: "romantic-Comedy"
+     -
+      name: "Movie276"
+      size: 958
+      genre: "romantic-Comedy"
+Actor[akka://ChordActorSystem/user/Parent/node2#-1770525124]:
+  coordinates_2D: "(startX=50.0, endX=74.5), (startY=50.0, endY=100.0)"
+  Movies:
+   -
+    name: "Movie623"
+    size: 787
+    genre: "Action"
+   -
+    name: "Movie231"
+    size: 316
+    genre: "romantic-Comedy"
+   -
+    name: "Movie276"
+    size: 958
+    genre: "romantic-Comedy"
+  Replica:
+    Actor[akka://ChordActorSystem/user/Parent/node1#499635296]: []
+    Actor[akka://ChordActorSystem/user/Parent/node3#-1393902007]:
+     -
+      name: "Movie366"
+      size: 762
+      genre: "Action"
+     -
+      name: "Movie826"
+      size: 299
+      genre: "Action"
+     -
+      name: "Movie876"
+      size: 367
+      genre: "Action-Thriller"
+    Actor[akka://ChordActorSystem/user/Parent/node4#-1129250107]: []
