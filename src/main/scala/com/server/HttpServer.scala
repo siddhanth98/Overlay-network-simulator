@@ -38,11 +38,13 @@ object HttpServer {
       val topology = config.getString("app.TOPOLOGY")
       val n = config.getInt("app.NUMBER_OF_NODES")
       val dumpPeriod = config.getInt("app.DUMP_PERIOD_IN_SEC")
+      val replicationPeriod = config.getInt("app.REPLICATION_PERIOD")
+      val nodeJoinFailPeriod = config.getInt("app.NODE_JOIN_FAILURE_PERIOD")
 
       if (topology.equals("CHORD")) {
         val m = config.getInt("app.CHORD.NUMBER_OF_FINGERS")
 
-        val parentActor = context.spawn(Parent(m, n, dumpPeriod), "Parent")
+        val parentActor = context.spawn(Parent(m, n, dumpPeriod, nodeJoinFailPeriod), "Parent")
         context.log.info(s"${context.self.path}\t:\tSpawned parent actor - $parentActor")
 
         val userRoutes = new UserRoutes(parentActor)(context.system)
@@ -51,8 +53,6 @@ object HttpServer {
       else {
         val endX = config.getInt("app.CAN.END_X")
         val endY = config.getInt("app.CAN.END_Y")
-        val replicationPeriod = config.getInt("app.CAN.REPLICATION_PERIOD")
-        val nodeJoinFailPeriod = config.getInt("app.CAN.NODE_JOIN_FAILURE_PERIOD")
         val parentActor = context.spawn(com.can.Parent(n, endX, endY, replicationPeriod, nodeJoinFailPeriod, dumpPeriod), "Parent")
         context.log.info(s"${context.self.path}\t:\tSpawned parent actor - $parentActor")
 

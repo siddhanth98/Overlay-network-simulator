@@ -25,22 +25,25 @@ import scala.math.BigInt.javaBigInteger2bigInt
 object Parent {
 
   trait Command
-  final case class Join(successorNodeRef: ActorRef[Node.Command], predecessorNodeRef: ActorRef[Node.Command])
+  final case class Join(successorNodeRef: ActorRef[Node.Command], predecessorNodeRef: ActorRef[Node.Command],
+                        nextSuccessorNodeRef: ActorRef[Node.Command], nextSuccessorHashValue: Int, hashValue: Int)
     extends Command with Node.Command
   final case object ObserveFingerTable extends Command
   final case class ActorName(name: String) extends Command
   final case class DumpActorState(replyTo: ActorRef[Command]) extends Command with Node.Command
+  final case object TerminateOrJoinNode extends Command
 
   def md5(s: String): Array[Byte] = MessageDigest.getInstance("MD5").digest(s.getBytes)
 
   def getSignedHash(m: Int, s: String): Int = (UnsignedInt(ByteBuffer.wrap(md5(s)).getInt).bigIntegerValue % Math.pow(2, m).toInt).intValue()
 
-  def apply(m: Int, n: Int, dumpPeriod: Int): Behavior[Command] =
+  def apply(m: Int, n: Int, dumpPeriod: Int, nodeJoinFailurePeriod: Int): Behavior[Command] =
     Behaviors.setup[Command] (context => Behaviors.withTimers { timer =>
       val slotToAddress = spawnServers(m, n, context)
       timer.startTimerAtFixedRate(DumpActorState(context.self), dumpPeriod.seconds)
+      timer.startTimerAtFixedRate(TerminateOrJoinNode, nodeJoinFailurePeriod.seconds)
       context.log.info(s"${context.self.path}\t:\tSpawned actor hashes => [${slotToAddress.keySet.toList.mkString(", ")}]")
-      update(m, n, slotToAddress, slotToAddress.keySet.toList, List.empty)
+      update(m, n, slotToAddress, slotToAddress.keySet.toList, List.empty, nodeJoinFlag=true)
     })
 
   /**
@@ -52,8 +55,24 @@ object Parent {
    * @param actorStates List of actor states to dump
    */
   def update(m: Int, n: Int, slotToAddress: mutable.Map[Int, ActorRef[Node.Command]], actorHashesList: List[Int],
-             actorStates: List[Node.StateToDump]): Behavior[Command] =
+             actorStates: List[Node.StateToDump], nodeJoinFlag: Boolean): Behavior[Command] =
       Behaviors.receive {
+
+          /*
+          * This message is sent by the parent actor to itself to either terminate / create a random node in the chord ring
+          */
+        case (context, TerminateOrJoinNode) =>
+          if (nodeJoinFlag) {
+            context.log.info(s"${context.self.path}\t:\tCreating new node in the chord ring...")
+            val newSlotToAddress = spawnNewNode(slotToAddress, context, m)
+            update(m, n, newSlotToAddress, newSlotToAddress.keySet.toList, actorStates, nodeJoinFlag=false)
+          }
+          else {
+            context.log.info(s"${context.self.path}\t:\tStopping a random node in the chord ring")
+            val newSlotToAddress = terminateNode(slotToAddress, actorHashesList, context, m)
+            update(m, n, newSlotToAddress, newSlotToAddress.keySet.toList, actorStates, nodeJoinFlag=true)
+          }
+
             /*
             * Parent actor has sent itself a message to collect and dump all actor states
             */
@@ -72,9 +91,9 @@ object Parent {
           if (actorStates.size == slotToAddress.keySet.size-1) {
             dumpState(state :: actorStates)
             context.log.info(s"${context.self.path}\t:\tFinished dumping all actor states")
-            update(m, n, slotToAddress, actorHashesList, List.empty)
+            update(m, n, slotToAddress, actorHashesList, List.empty, nodeJoinFlag)
           }
-          else update(m, n, slotToAddress, actorHashesList, state :: actorStates)
+          else update(m, n, slotToAddress, actorHashesList, state :: actorStates, nodeJoinFlag)
 
         case (context, Node.DataStorageResponseSuccess(d)) =>
           context.log.info(s"${context.self.path}\t:\tGot response $d")
@@ -133,25 +152,62 @@ object Parent {
 
     (1 to n).foreach(_ => {
       val serverNode = context.spawn(Node(m, mutable.Map[Int, Int](), mutable.Map[Int, ActorRef[Node.Command]](),
-        null, null), "Server" + scala.util.Random.nextInt(100000).toString)
+        null, null, null, -1), "Server" + scala.util.Random.nextInt(100000).toString)
       val serverNodeHash = getSignedHash(m, serverNode.path.toString)
 
       if (!newSlotToAddress.contains(serverNodeHash)) {
         if (newSlotToAddress.keySet.toList.isEmpty) {
           newSlotToAddress += (serverNodeHash -> serverNode)
-          serverNode ! Join(serverNode, findPredecessor(serverNodeHash, newSlotToAddress, context))
+          serverNode ! Join(serverNode,
+            findPredecessor(serverNodeHash, newSlotToAddress, context),
+            findNextSuccessor(serverNodeHash, newSlotToAddress),
+            findNextSuccessorIndex(findNextSuccessorIndex(serverNodeHash, newSlotToAddress), newSlotToAddress),
+            serverNodeHash)
+
           context.log.info(s"${context.self.path}\t:\tSpawned 1st server $serverNode having hash $serverNodeHash")
         }
         else {
           newSlotToAddress += (serverNodeHash -> serverNode)
           serverNode ! Join(findExistingSuccessorNode(serverNodeHash, newSlotToAddress, context),
-            findPredecessor(serverNodeHash, newSlotToAddress, context))
+            findPredecessor(serverNodeHash, newSlotToAddress, context),
+            findNextSuccessor(serverNodeHash, newSlotToAddress),
+            findNextSuccessorIndex(findNextSuccessorIndex(serverNodeHash, newSlotToAddress), newSlotToAddress),
+            serverNodeHash)
+
           context.log.info(s"${context.self.path}\t:\tSpawned server $serverNode having hash $serverNodeHash")
         }
       }
       Thread.sleep(500)
     })
     newSlotToAddress
+  }
+
+  def spawnNewNode(slotToAddress: mutable.Map[Int, ActorRef[Node.Command]], context: ActorContext[Command],
+                   m: Int):
+  mutable.Map[Int, ActorRef[Node.Command]] = {
+    val newNode = context.spawn(Node(m, mutable.Map[Int, Int](), mutable.Map[Int, ActorRef[Node.Command]](), null, null, null, -1),
+      s"Server${scala.util.Random.nextInt(100000)}")
+    val newNodeHash = getSignedHash(m, newNode.path.toString)
+    if (slotToAddress.contains(newNodeHash)) {
+      context.stop(newNode)
+      slotToAddress
+    }
+    else {
+      context.log.info(s"${context.self.path}\t:\tSpawned new node $newNode with hash $newNodeHash")
+      newNode ! Join(findExistingSuccessorNode(newNodeHash, slotToAddress, context),
+        findPredecessor(newNodeHash, slotToAddress, context), findNextSuccessor(newNodeHash, slotToAddress),
+        findNextSuccessorIndex(findNextSuccessorIndex(newNodeHash, slotToAddress), slotToAddress),
+        newNodeHash)
+      slotToAddress + (newNodeHash -> newNode)
+    }
+  }
+
+  def terminateNode(slotToAddress: mutable.Map[Int, ActorRef[Node.Command]], actorHashesList: List[Int], context: ActorContext[Command],
+                    m: Int): mutable.Map[Int, ActorRef[Node.Command]] = {
+    val randomNode = findRandomActor(slotToAddress, actorHashesList, context)
+    val randomNodeHash = getSignedHash(m, randomNode.path.toString)
+    context.stop(randomNode)
+    slotToAddress-randomNodeHash
   }
 
   /**
@@ -197,6 +253,15 @@ object Parent {
       context.log.info(s"${context.self.path}\t:\tsuccessor node of $n = ${slotToAddress(resultIndex.get)}")
       slotToAddress(resultIndex.get)
     }
+  }
+
+  def findNextSuccessor(n: Int, slotToAddress: mutable.Map[Int, ActorRef[Node.Command]]): ActorRef[Node.Command] =
+    slotToAddress(findNextSuccessorIndex(findNextSuccessorIndex(n, slotToAddress), slotToAddress))
+
+  def findNextSuccessorIndex(n: Int, slotToAddress: mutable.Map[Int, ActorRef[Node.Command]]): Int = {
+    val resultIndex = slotToAddress.keySet.toList.sorted.find(_ > n)
+    if (resultIndex.isEmpty) slotToAddress.keySet.toList.sorted.find(_ <= n).get
+    else resultIndex.get
   }
 
   /**
