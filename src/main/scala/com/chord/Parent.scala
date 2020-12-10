@@ -3,8 +3,10 @@ package com.chord
 import java.io.{File, FileWriter}
 import java.nio.ByteBuffer
 import java.security.MessageDigest
-import akka.actor.typed.{ActorRef, Behavior}
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
+import akka.cluster.sharding.typed.ShardingEnvelope
+import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity, EntityTypeKey}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator.Feature
@@ -25,6 +27,7 @@ import scala.math.BigInt.javaBigInteger2bigInt
 object Parent {
 
   trait Command
+  val typeKey: EntityTypeKey[Command] = EntityTypeKey[Command]("Parent")
   final case class Join(successorNodeRef: ActorRef[Node.Command], predecessorNodeRef: ActorRef[Node.Command],
                         nextSuccessorNodeRef: ActorRef[Node.Command], nextSuccessorHashValue: Int, hashValue: Int)
     extends Command with Node.Command
@@ -33,17 +36,24 @@ object Parent {
   final case class DumpActorState(replyTo: ActorRef[Command]) extends Command with Node.Command
   final case class TerminateOrJoinNode(replicationPeriod: Int) extends Command
 
+  def initializeShardRegion(system: ActorSystem[_], numberOfShards: Int, m: Int, n: Int, dumpPeriod: Int, nodeJoinFailurePeriod: Int, replicationPeriod: Int):
+  ActorRef[ShardingEnvelope[Command]] = {
+    ClusterSharding(system).init(Entity(typeKey){ entityContext =>
+      Parent(entityContext.entityId, m, n, dumpPeriod, nodeJoinFailurePeriod, replicationPeriod)
+    })
+  }
+
   def md5(s: String): Array[Byte] = MessageDigest.getInstance("MD5").digest(s.getBytes)
 
   def getSignedHash(m: Int, s: String): Int = (UnsignedInt(ByteBuffer.wrap(md5(s)).getInt).bigIntegerValue % Math.pow(2, m).toInt).intValue()
 
-  def apply(m: Int, n: Int, dumpPeriod: Int, nodeJoinFailurePeriod: Int, replicationPeriod: Int): Behavior[Command] =
+  def apply(entityId: String, m: Int, n: Int, dumpPeriod: Int, nodeJoinFailurePeriod: Int, replicationPeriod: Int): Behavior[Command] =
     Behaviors.setup[Command] (context => Behaviors.withTimers { timer =>
       val slotToAddress = spawnServers(m, n, context, replicationPeriod)
       timer.startTimerAtFixedRate(DumpActorState(context.self), dumpPeriod.seconds)
       timer.startTimerAtFixedRate(TerminateOrJoinNode(replicationPeriod), nodeJoinFailurePeriod.seconds)
       context.log.info(s"${context.self.path}\t:\tSpawned actor hashes => [${slotToAddress.keySet.toList.mkString(", ")}]")
-      update(m, n, slotToAddress, slotToAddress.keySet.toList, List.empty, nodeJoinFlag=true)
+      update(entityId, n, slotToAddress, slotToAddress.keySet.toList, List.empty, nodeJoinFlag=true, m)
     })
 
   /**
@@ -54,8 +64,8 @@ object Parent {
    * @param actorHashesList List of all actor node hash values currently in the
    * @param actorStates List of actor states to dump
    */
-  def update(m: Int, n: Int, slotToAddress: mutable.Map[Int, ActorRef[Node.Command]], actorHashesList: List[Int],
-             actorStates: List[Node.StateToDump], nodeJoinFlag: Boolean): Behavior[Command] =
+  def update(entityId: String, n: Int, slotToAddress: mutable.Map[Int, ActorRef[Node.Command]], actorHashesList: List[Int],
+             actorStates: List[Node.StateToDump], nodeJoinFlag: Boolean, m: Int): Behavior[Command] =
       Behaviors.receive {
 
           /*
@@ -65,12 +75,12 @@ object Parent {
           if (nodeJoinFlag) {
             context.log.info(s"${context.self.path}\t:\tCreating new node in the chord ring...")
             val newSlotToAddress = spawnNewNode(slotToAddress, context, m, replicationPeriod)
-            update(m, n, newSlotToAddress, newSlotToAddress.keySet.toList, actorStates, nodeJoinFlag=false)
+            update(entityId, n, newSlotToAddress, newSlotToAddress.keySet.toList, actorStates, nodeJoinFlag=false, m)
           }
           else {
             context.log.info(s"${context.self.path}\t:\tStopping a random node in the chord ring")
             val newSlotToAddress = terminateNode(slotToAddress, actorHashesList, context, m)
-            update(m, n, newSlotToAddress, newSlotToAddress.keySet.toList, actorStates, nodeJoinFlag=true)
+            update(entityId, n, newSlotToAddress, newSlotToAddress.keySet.toList, actorStates, nodeJoinFlag=true, m)
           }
 
             /*
@@ -91,9 +101,9 @@ object Parent {
           if (actorStates.size == slotToAddress.keySet.size-1) {
             dumpState(state :: actorStates)
             context.log.info(s"${context.self.path}\t:\tFinished dumping all actor states")
-            update(m, n, slotToAddress, actorHashesList, List.empty, nodeJoinFlag)
+            update(entityId, n, slotToAddress, actorHashesList, List.empty, nodeJoinFlag, m)
           }
-          else update(m, n, slotToAddress, actorHashesList, state :: actorStates, nodeJoinFlag)
+          else update(entityId, n, slotToAddress, actorHashesList, state :: actorStates, nodeJoinFlag, m)
 
           /*
           * This actor has received a request for storing some data(movie). It will find a random node in the ring and forward

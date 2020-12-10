@@ -40,29 +40,33 @@ object HttpServer {
       val dumpPeriod = config.getInt("app.DUMP_PERIOD_IN_SEC")
       val replicationPeriod = config.getInt("app.REPLICATION_PERIOD")
       val nodeJoinFailPeriod = config.getInt("app.NODE_JOIN_FAILURE_PERIOD")
+      val numberOfShards = config.getInt("app.NUMBER_OF_SHARDS")
 
       if (topology.equals("CHORD")) {
         val m = config.getInt("app.CHORD.NUMBER_OF_FINGERS")
 
-        val parentActor = context.spawn(Parent(m, n, dumpPeriod, nodeJoinFailPeriod, replicationPeriod), "Parent")
-        context.log.info(s"${context.self.path}\t:\tSpawned parent actor - $parentActor")
+        val parent = Parent.initializeShardRegion(context.system, numberOfShards, m, n, dumpPeriod, nodeJoinFailPeriod, replicationPeriod)
+        context.log.info(s"${context.self.path}\t:\tSpawned parent actor - $parent")
 
-        val userRoutes = new UserRoutes(parentActor)(context.system)
+        val userRoutes = new UserRoutes()(context.system)
         startHttpServer(userRoutes.userRoutes)(context.system)
       }
       else {
         val endX = config.getInt("app.CAN.END_X")
         val endY = config.getInt("app.CAN.END_Y")
-        val parentActor = context.spawn(com.can.Parent(n, endX, endY, replicationPeriod, nodeJoinFailPeriod, dumpPeriod), "Parent")
+        val parentActor = com.can.Parent.initializeShardRegion(context.system, numberOfShards, n, endX, endY, replicationPeriod, nodeJoinFailPeriod, dumpPeriod)
         context.log.info(s"${context.self.path}\t:\tSpawned parent actor - $parentActor")
 
-        val userRoutes = new com.can.UserRoutes(parentActor)(context.system)
+        val userRoutes = new com.can.UserRoutes()(context.system)
         startHttpServer(userRoutes.routes)(context.system)
       }
       Behaviors.empty
     }
-    val _ = ActorSystem[Nothing](guardianBehavior, "ChordActorSystem")
+    val _ = ActorSystem[Nothing](guardianBehavior, "ServerActorSystem",
+      ConfigFactory.parseString(s"""akka.remote.artery.canonical.port = 2553""")
+        .withFallback(ConfigFactory.load()))
   }
+
 
   /**
    * This is the main driver function of the chord server.

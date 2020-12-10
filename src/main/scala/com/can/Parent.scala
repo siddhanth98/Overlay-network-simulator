@@ -1,7 +1,9 @@
 package com.can
 
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
-import akka.actor.typed.{ActorRef, Behavior}
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
+import akka.cluster.sharding.typed.{HashCodeMessageExtractor, ShardingEnvelope}
+import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity, EntityTypeKey}
 import com.can.Node.DataActionResponse
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -20,6 +22,7 @@ import scala.util.Random
  */
 object Parent {
   trait Command
+  val typeKey: EntityTypeKey[Command] = EntityTypeKey[Command]("Parent")
 
   /**
    * Message for getting a random node from the CAN
@@ -44,19 +47,27 @@ object Parent {
   final case class DumpNodeState(replyTo: ActorRef[Command]) extends Command with Node.Command
   final case class NodeState(node: ActorRef[Node.Command], state: Node.State) extends Command
 
-  def apply(n: Int, endX: Int, endY: Int, replicationPeriod: Int, joinFailPeriod: Int, dumpPeriod: Int):
+  def initializeShardRegion(system: ActorSystem[_], numberOfShards: Int, n: Int, endX: Int, endY: Int, replicationPeriod: Int,
+                            joinFailPeriod: Int, dumpPeriod: Int):
+  ActorRef[ShardingEnvelope[Command]] = {
+    ClusterSharding(system).init(Entity(typeKey){ entityContext =>
+      Parent(entityContext.entityId, n, endX, endY, replicationPeriod, joinFailPeriod, dumpPeriod)
+    }.withMessageExtractor(new HashCodeMessageExtractor[Command](numberOfShards))
+    )
+  }
+
+  def apply(entityId: String, n: Int, endX: Int, endY: Int, replicationPeriod: Int, joinFailPeriod: Int, dumpPeriod: Int):
   Behavior[Command] = Behaviors.setup{context =>
     val nodes = spawnNodes(n, context, endX, endY, replicationPeriod)
 
     Behaviors.withTimers { timer =>
       timer.startTimerWithFixedDelay(TerminateOrJoinNode, joinFailPeriod.seconds)
       timer.startTimerWithFixedDelay(DumpNodeState(context.self), dumpPeriod.seconds)
-      process(nodes, nodeJoinFlag=true, axis='X', endX, endY, replicationPeriod)
+      process(entityId, nodeJoinFlag=true, axis='X', endX, endY, replicationPeriod, nodes = nodes)
     }
   }
 
-  def process(nodes: List[ActorRef[Node.Command]], nodeJoinFlag: Boolean, axis: Character, endX: Int, endY: Int,
-              replicationPeriod: Int, state: Map[ActorRef[Node.Command], Node.State]=Map.empty): Behavior[Command] = Behaviors.receive {
+  def process(entityId: String, nodeJoinFlag: Boolean, axis: Character, endX: Int, endY: Int, replicationPeriod: Int, state: Map[ActorRef[Node.Command], Node.State] = Map.empty, nodes: List[ActorRef[Node.Command]]): Behavior[Command] = Behaviors.receive {
 
     case (context, DumpNodeState(ref)) =>
       context.log.info(s"${context.self.path}\t:\tAsking nodes for their states...")
@@ -68,23 +79,23 @@ object Parent {
       if (state.keySet.size == nodes.size-1) {
         context.log.info(s"${context.self.path}\t:\tAll nodes have sent their states. Dumping all states to disk now.")
         dumpState(state+(ref->nodeState))
-        process(nodes, nodeJoinFlag, axis, endX, endY, replicationPeriod)
+        process(entityId, nodeJoinFlag, axis, endX, endY, replicationPeriod, nodes = nodes)
       }
-      else process(nodes, nodeJoinFlag, axis, endX, endY, replicationPeriod, state+(ref->nodeState))
+      else process(entityId, nodeJoinFlag, axis, endX, endY, replicationPeriod, state+(ref->nodeState), nodes)
 
 
     case (context, TerminateOrJoinNode) =>
       if (nodeJoinFlag) {
         val newNode = context.spawn(Node(nodes.size+1, getRandomNode(nodes), axis, replicationPeriod), s"node${Random.nextInt(10000)}")
         context.log.info(s"${context.self.path}\t:\tCreating node $newNode")
-        process(nodes:+newNode, nodeJoinFlag=false, if (axis=='X') 'Y' else 'X', endX, endY, replicationPeriod)
+        process(entityId, nodeJoinFlag=false, if (axis=='X') 'Y' else 'X', endX, endY, replicationPeriod, nodes = nodes:+newNode)
       }
       else {
         val randomIndex = Random.nextInt(nodes.size)
         val randomNode = nodes(randomIndex)
         context.log.info(s"${context.self.path}\t:\tStopping node $randomNode")
         randomNode ! Node.Stop
-        process(nodes.slice(0, randomIndex)++nodes.slice(randomIndex+1, nodes.size), nodeJoinFlag=true, axis, endX, endY, replicationPeriod)
+        process(entityId, nodeJoinFlag=true, axis, endX, endY, replicationPeriod, nodes = nodes.slice(0, randomIndex)++nodes.slice(randomIndex+1, nodes.size))
       }
 
     case (context, FindNodeForStoringData(replyTo, name, size, genre)) =>

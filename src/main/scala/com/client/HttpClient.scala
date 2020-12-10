@@ -100,7 +100,7 @@ object HttpClient {
   def makeHttpPostRequest(name: String, size: Int, genre: String): HttpRequest =
     HttpRequest (
       method = HttpMethods.POST,
-      uri = "http://localhost:8080/movies",
+      uri = "http://localhost:8080/movies/1",
       entity = HttpEntity(
         ContentTypes.`application/json`,
         s"""{"name": "$name", "size": $size, "genre": "$genre"}"""
@@ -114,7 +114,7 @@ object HttpClient {
   def makeHttpGetRequest(name: String): HttpRequest =
     HttpRequest (
       method = HttpMethods.GET,
-      uri = s"http://localhost:8080/movies/getMovie/$name"
+      uri = s"http://localhost:8080/movies/1/getMovie/$name"
     )
 
   /**
