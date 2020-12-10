@@ -2,6 +2,7 @@ package com.simulation
 
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
+import ch.qos.logback.classic.util.ContextInitializer
 import com.client.HttpClient
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -15,6 +16,7 @@ import scala.util.Random
  * random number, which, if even, will make the client make a post request otherwise a get request.
  */
 object Simulation {
+  System.setProperty(ContextInitializer.CONFIG_FILE_PROPERTY, "src/main/resources/logback.xml")
   trait Command
   final case object CreateClients extends Command
   final case class SimulationMovie(name: String, size: Int, genre: String) extends Command

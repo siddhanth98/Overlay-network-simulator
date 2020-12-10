@@ -4,6 +4,7 @@ import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
 import akka.cluster.sharding.typed.{HashCodeMessageExtractor, ShardingEnvelope}
 import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity, EntityTypeKey}
+import ch.qos.logback.classic.util.ContextInitializer
 import com.can.Node.DataActionResponse
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
@@ -22,6 +23,7 @@ import scala.util.Random
  */
 object Parent {
   trait Command
+  System.setProperty(ContextInitializer.CONFIG_FILE_PROPERTY, "src/main/resources/logback.xml")
   val typeKey: EntityTypeKey[Command] = EntityTypeKey[Command]("Parent")
 
   /**

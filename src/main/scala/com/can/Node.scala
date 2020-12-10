@@ -3,6 +3,7 @@ package com.can
 import akka.actor.Cancellable
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior, Terminated}
+import ch.qos.logback.classic.util.ContextInitializer
 import com.can.Parent.FindAnotherNodeForQuery
 import com.utils.UnsignedInt
 
@@ -19,6 +20,7 @@ import scala.util.Random
  * This actor represents a node in the CAN
  */
 object Node {
+  System.setProperty(ContextInitializer.CONFIG_FILE_PROPERTY, "src/main/resources/logback.xml")
   trait Command
   trait DataActionResponse extends Command
 

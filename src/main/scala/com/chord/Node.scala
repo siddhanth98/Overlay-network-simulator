@@ -4,6 +4,7 @@ import java.nio.ByteBuffer
 import akka.actor.typed.{ActorRef, Behavior, Terminated}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.util.Timeout
+import ch.qos.logback.classic.util.ContextInitializer
 import com.utils.UnsignedInt
 
 import scala.concurrent.duration.DurationInt
@@ -28,6 +29,7 @@ object Node {
   trait Command
   sealed trait DataActionResponse extends Command with Parent.Command
   final val logger: Logger = LoggerFactory.getLogger(Node.getClass)
+  System.setProperty(ContextInitializer.CONFIG_FILE_PROPERTY, "src/main/resources/logback.xml")
 
   /**
    * Set of messages for querying and obtaining finger tables

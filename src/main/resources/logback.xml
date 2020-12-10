@@ -21,28 +21,36 @@
         <appender-ref ref="SERVER" />
     </logger>
 
-    <logger name="com.chord.HttpServer" level="INFO">
+    <logger name="com.server.HttpServer" level="INFO">
         <appender-ref ref="SERVER" />
     </logger>
 
-    <logger name="com.chord.HttpClient" level="INFO">
+    <logger name="com.client.HttpClient" level="INFO">
         <appender-ref ref="CLIENT" />
     </logger>
 
-    <logger name="com.chord.Counter" level="INFO">
+    <logger name="com.client.Counter" level="INFO">
         <appender-ref ref="CLIENT" />
     </logger>
 
-    <logger name="com.chord.Aggregator" level="INFO">
+    <logger name="com.simulation.Aggregator" level="INFO">
         <appender-ref ref="CLIENT" />
     </logger>
 
-    <logger name="com.chord.Simulation" level="INFO">
+    <logger name="com.simulation.Simulation" level="INFO">
         <appender-ref ref="CLIENT" />
     </logger>
 
-    <logger name="com.chord.Main" level="INFO">
+    <logger name="com.simulation.Main" level="INFO">
         <appender-ref ref="CLIENT" />
+    </logger>
+
+    <logger name="com.can.Node" level="INFO">
+        <appender-ref ref="SERVER" />
+    </logger>
+
+    <logger name="com.can.Parent" level="INFO">
+        <appender-ref ref="SERVER" />
     </logger>
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">

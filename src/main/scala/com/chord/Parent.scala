@@ -7,6 +7,7 @@ import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.cluster.sharding.typed.ShardingEnvelope
 import akka.cluster.sharding.typed.scaladsl.{ClusterSharding, Entity, EntityTypeKey}
+import ch.qos.logback.classic.util.ContextInitializer
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator.Feature
@@ -27,7 +28,9 @@ import scala.math.BigInt.javaBigInteger2bigInt
 object Parent {
 
   trait Command
+  System.setProperty(ContextInitializer.CONFIG_FILE_PROPERTY, "src/main/resources/logback.xml")
   val typeKey: EntityTypeKey[Command] = EntityTypeKey[Command]("Parent")
+
   final case class Join(successorNodeRef: ActorRef[Node.Command], predecessorNodeRef: ActorRef[Node.Command],
                         nextSuccessorNodeRef: ActorRef[Node.Command], nextSuccessorHashValue: Int, hashValue: Int)
     extends Command with Node.Command
