@@ -37,6 +37,7 @@ class ClientNodeTest extends ScalaTestWithActorTestKit with AnyWordSpecLike {
     HttpServer(config)
     Thread.sleep(1000)
     client ! PostMovie(movie1Name, movie1Size, movie1Genre)
+    Thread.sleep(2000)
     client ! PostMovie(movie2Name, movie2Size, movie2Genre)
     Thread.sleep(5000)
   }
