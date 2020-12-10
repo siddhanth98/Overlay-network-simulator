@@ -2,6 +2,7 @@ package com.can
 
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior}
+import com.can.Node.DataActionResponse
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator.Feature
@@ -35,6 +36,10 @@ object Parent {
    * Message for terminating or creating a random node in the CAN
    */
   final case object TerminateOrJoinNode extends Command
+  final case class FindAnotherNodeForStorage(replyTo: ActorRef[DataActionResponse], name: String, size: Int, genre: String,
+                                             endX: Int, endY: Int) extends Command with Node.Command
+  final case class FindAnotherNodeForQuery(replyTo: ActorRef[DataActionResponse], name: String, endX: Int, endY: Int)
+    extends Command with Node.Command
 
   final case class DumpNodeState(replyTo: ActorRef[Command]) extends Command with Node.Command
   final case class NodeState(node: ActorRef[Node.Command], state: Node.State) extends Command
@@ -44,7 +49,7 @@ object Parent {
     val nodes = spawnNodes(n, context, endX, endY, replicationPeriod)
 
     Behaviors.withTimers { timer =>
-//      timer.startTimerWithFixedDelay(TerminateOrJoinNode, joinFailPeriod.seconds)
+      timer.startTimerWithFixedDelay(TerminateOrJoinNode, joinFailPeriod.seconds)
       timer.startTimerWithFixedDelay(DumpNodeState(context.self), dumpPeriod.seconds)
       process(nodes, nodeJoinFlag=true, axis='X', endX, endY, replicationPeriod)
     }
@@ -85,13 +90,23 @@ object Parent {
     case (context, FindNodeForStoringData(replyTo, name, size, genre)) =>
       val randomNode = getRandomNode(nodes)
       context.log.info(s"${context.self.path}\t:\tGot request for storing movie $name. Forwarding request to node $randomNode in the CAN")
-      randomNode ! Node.FindNodeForStoringData(replyTo, name, size, genre, endX, endY)
+      randomNode ! Node.FindNodeForStoringData(context.self, replyTo, name, size, genre, endX, endY)
       Behaviors.same
 
     case (context, FindSuccessorForFindingData(replyTo, name)) =>
       val randomNode = getRandomNode(nodes)
       context.log.info(s"${context.self.path}\t:\tGot request for obtaining movie $name. Forwarding search request to node $randomNode in the CAN")
-      randomNode ! Node.FindSuccessorForFindingData(replyTo, name, endX, endY)
+      randomNode ! Node.FindSuccessorForFindingData(context.self, replyTo, name, endX, endY)
+      Behaviors.same
+
+    case (context, FindAnotherNodeForStorage(replyTo, name, size, genre, endX, endY)) =>
+      context.log.info(s"${context.self.path}\t:\tFinding another node for storing movie $name")
+      getRandomNode(nodes) ! Node.FindNodeForStoringData(context.self, replyTo, name, size, genre, endX, endY)
+      Behaviors.same
+
+    case (context, FindAnotherNodeForQuery(replyTo, name, endX, endY)) =>
+      context.log.info(s"${context.self.path}\t:\tFinding another node for finding movie $name")
+      getRandomNode(nodes) ! Node.FindSuccessorForFindingData(context.self, replyTo, name, endX, endY)
       Behaviors.same
   }
 

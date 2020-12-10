@@ -3,6 +3,7 @@ package com.can
 import akka.actor.Cancellable
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, Behavior, Terminated}
+import com.can.Parent.FindAnotherNodeForQuery
 import com.utils.UnsignedInt
 
 import java.nio.ByteBuffer
@@ -20,6 +21,9 @@ import scala.util.Random
 object Node {
   trait Command
   trait DataActionResponse extends Command
+
+  final case class GetCoordinates(replyTo: ActorRef[NodeCoordinates]) extends Command
+  final case class NodeCoordinates(coordinates: Array[Array[Double]]) extends Command
 
   /**
    * Message sent by a newly joined node to a random node already in the CAN
@@ -63,12 +67,13 @@ object Node {
   /**
    * Set of messages for handling movie storage / retrieval requests and responses
    */
-  final case class FindNodeForStoringData(replyTo: ActorRef[DataActionResponse], name: String, size: Int, genre: String,
-                                          endX: Int, endY: Int) extends Command
+  final case class FindNodeForStoringData(parentRef: ActorRef[Parent.Command], replyTo: ActorRef[DataActionResponse], name: String, size: Int, genre: String,
+                                          endX: Int, endY: Int, requesterNode: ActorRef[Command] = null) extends Command
   final case class DataStorageResponseSuccess(description: String) extends DataActionResponse
   final case class DataStorageResponseFailure(description: String) extends DataActionResponse
 
-  final case class FindSuccessorForFindingData(replyTo: ActorRef[DataActionResponse], name: String, endX: Int, endY: Int) extends Command
+  final case class FindSuccessorForFindingData(parentRef: ActorRef[Parent.Command], replyTo: ActorRef[DataActionResponse], name: String, endX: Int, endY: Int,
+                                               requesterNode: ActorRef[Command] = null) extends Command
   final case class DataResponseSuccess(movie: Option[Movie]) extends DataActionResponse
   final case class DataResponseFailed(description: String) extends DataActionResponse
 
@@ -132,6 +137,10 @@ object Node {
               schedulerInstance: Cancellable = null, takeOverAckedNodes: Map[ActorRef[Command], Array[Array[Double]]] = Map.empty):
   Behavior[Command] = Behaviors.receive[Command] {
 
+    case (context, GetCoordinates(replyTo)) =>
+      replyTo ! NodeCoordinates(coordinates)
+      Behaviors.same
+
     case (context, Stop) =>
       context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tReceived stop message from parent.")
       Behaviors.stopped
@@ -185,8 +194,8 @@ object Node {
       val endY = coordinates(1)(1)
       if (splitAxis == 'X') {
         /* Split along the x axis vertically, send new node its new right zone coordinates and neighbours */
-        val newNodeCoordinates = Array(Array((startX + endX - 1)/2D, endX), Array(startY, endY))
-        val newNodeNeighbourSet = findNeighboursForOverlappingCoordinates(neighbours, (startX + endX - 1)/2D, endX, startY, endY)
+        val newNodeCoordinates = Array(Array((startX + endX)/2D, endX), Array(startY, endY))
+        val newNodeNeighbourSet = findNeighboursForOverlappingCoordinates(neighbours, (startX + endX)/2D, endX, startY, endY)
         val newNodeNeighbourMap = getNeighbourCoordinatesFromNewNeighbourSet(newNodeNeighbourSet, neighbours)
 
         context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tSplitting myself and giving coordinates [${printCoordinates(newNodeCoordinates)}] to" +
@@ -215,8 +224,8 @@ object Node {
 
       else {
         /* Split along the y axis horizontally, send new node its new upper zone coordinates and neighbours */
-        val newNodeCoordinates = Array(Array(startX, endX), Array((startY+endY-1)/2D, endY))
-        val newNodeNeighbourSet = findNeighboursForOverlappingCoordinates(neighbours, startX, endX, (startY+endY-1)/2D, endY)
+        val newNodeCoordinates = Array(Array(startX, endX), Array((startY+endY)/2D, endY))
+        val newNodeNeighbourSet = findNeighboursForOverlappingCoordinates(neighbours, startX, endX, (startY+endY)/2D, endY)
         val newNodeNeighbourMap = getNeighbourCoordinatesFromNewNeighbourSet(newNodeNeighbourSet, neighbours)
 
         context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tSplitting myself and giving coordinates [${printCoordinates(newNodeCoordinates)}] to" +
@@ -480,7 +489,7 @@ object Node {
     /*
     * Messages for handling storage/retrieval of movies
     */
-    case m @ (context, FindNodeForStoringData(replyTo, name, size, genre, endX, endY)) =>
+    case m @ (context, FindNodeForStoringData(parentRef, replyTo, name, size, genre, endX, endY, requesterNode)) =>
       if (isWithinMyZone(name, coordinates, endX, endY)) {
         context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tStoring movie $name with me")
         replyTo ! DataStorageResponseSuccess(s"Movie $name successfully stored")
@@ -492,7 +501,7 @@ object Node {
 
         process(nodeId, movies+Movie(name, size, genre), replicaSet, coordinates, neighbours, transitiveNeighbourMap)
       }
-      else {
+      else if (neighbours.keySet.size > 1) {
         val x = getXCoordinate(name, endX)
         val y = getYCoordinate(name, endY)
 
@@ -501,11 +510,15 @@ object Node {
         val nearestNeighbourToMovie = findNearestNeighbourForMovie(name, context, neighbours, endX, endY)
         context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tForwarding storage request of $name to " +
           s" hashed point ($x, $y) nearest neighbour $nearestNeighbourToMovie.")
-        nearestNeighbourToMovie ! m._2
+        nearestNeighbourToMovie ! FindNodeForStoringData(parentRef, replyTo, name, size, genre, endX, endY, context.self)
+        Behaviors.same
+      }
+      else {
+        parentRef ! Parent.FindAnotherNodeForStorage(replyTo, name, size, genre, endX, endY)
         Behaviors.same
       }
 
-    case m @ (context, FindSuccessorForFindingData(replyTo, name, endX, endY)) =>
+    case m @ (context, FindSuccessorForFindingData(parentRef, replyTo, name, endX, endY, requesterNode)) =>
       context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tGot request for finding movie $name")
       val x = getXCoordinate(name, endX)
       val y = getYCoordinate(name, endY)
@@ -522,15 +535,18 @@ object Node {
         replyTo ! DataResponseSuccess(replicaSet(movieOwnerNode).find(_.name == name))
       }
       else if (isWithinMyZone(name, coordinates, endX, endY)) {
-        context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tMovie $name was not stored in me")
-        replyTo ! DataResponseSuccess(movies.find(_.name == name))
+        context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tMovie $name was not stored in me. 404!")
+        replyTo ! DataResponseFailed(s"Requested movie $name could not be found. 404!")
       }
-      else {
+      else if (neighbours.keySet.size > 1) {
         val nearestNeighbour = findNearestNeighbourForMovie(name, context, neighbours, endX, endY)
         context.log.info(s"${context.self.path} - ${printCoordinates(coordinates)}\t:\tCould not find movie $name with me. " +
           s"Movie hashes to point ($x, $y), which is not in my zone. Forwarding search to nearest neighbour $nearestNeighbour")
-        nearestNeighbour ! m._2
+        nearestNeighbour ! FindSuccessorForFindingData(parentRef, replyTo, name, endX, endY, context.self)
       }
+      else
+        parentRef ! FindAnotherNodeForQuery(replyTo, name, endX, endY)
+
       Behaviors.same
   }
     .receiveSignal {
@@ -727,8 +743,8 @@ object Node {
     val endX = coordinates(0)(1)
     val startY = coordinates(1)(0)
     val endY = coordinates(1)(1)
-    if (splitAxis == 'X') Array(Array(startX, (startX+endX-1)/2D), Array(startY, endY))
-    else Array(Array(startX, endX), Array(startY, (startY+endY-1)/2D))
+    if (splitAxis == 'X') Array(Array(startX, (startX+endX)/2D), Array(startY, endY))
+    else Array(Array(startX, endX), Array(startY, (startY+endY)/2D))
   }
 
   def printCoordinates(coordinates: Array[Array[Double]]): String = {
@@ -850,8 +866,19 @@ object Node {
     val y = getYCoordinate(movieName, endY)
     var nearestNeighbour: ActorRef[Command] = null
     var minDistance = Double.MaxValue
+    context.log.info(s"${context.self.path}\t:\tfinding nearest among ${printNeighboursAndCoordinates(neighbours)}")
+
     neighbours.foreach(e => {
-      val distance = getDistance(x, y, (e._2(0)(0)+e._2(0)(1))/2, (e._2(1)(0)+e._2(1)(1))/2)
+      val startXPointOfNeighbour = e._2(0)(0)
+      val startYPointOfNeighbour = e._2(1)(0)
+      val endXPointOfNeighbour = e._2(0)(1)
+      val endYPointOfNeighbour = e._2(1)(1)
+
+      val randomXPointOfNeighbour = startXPointOfNeighbour + Random.nextInt(endXPointOfNeighbour.toInt-startXPointOfNeighbour.toInt+1)
+      val randomYPointOfNeighbour = startYPointOfNeighbour + Random.nextInt(endYPointOfNeighbour.toInt-startYPointOfNeighbour.toInt+1)
+
+      val distance = getDistance(x, y, randomXPointOfNeighbour, randomYPointOfNeighbour)
+      context.log.info(s"${context.self.path} - Distance calculated to ${e._1} is $distance")
       if (distance <= minDistance) {
         minDistance = distance
         nearestNeighbour = e._1

@@ -85,6 +85,10 @@ object Node {
                                          srcRouteRef: ActorRef[DataActionResponse]) extends Command
   final case class SuccessorNotFound(name: String, id: Int, srcRouteRef: ActorRef[DataActionResponse]) extends Command
   final case class FindNodeForStoringData(data: Data, srcRouteRef: ActorRef[DataActionResponse]) extends Command with Parent.Command
+  final case class GetMovies(replyTo: ActorRef[Command], myHash: Int) extends Command
+  final case class TakeMovies(movies: Set[Data]) extends Command
+  final case object SendReplica extends Command
+  final case class StoreReplicaSet(replica: Set[Data]) extends Command
 
   /**
    * Set of messages for finding successors and predecessors when a new node joins
@@ -158,7 +162,7 @@ object Node {
 
   def apply(m: Int, slotToHash: mutable.Map[Int, Int], hashToRef: mutable.Map[Int, ActorRef[Node.Command]],
             successor: ActorRef[Node.Command], predecessor: ActorRef[Node.Command], nextSuccessor: ActorRef[Command],
-            nextSuccessorHashValue: Int): Behavior[Command] = {
+            nextSuccessorHashValue: Int, replicationPeriod: Int): Behavior[Command] = {
 
     /**
      * This method defines the behavior of an actor node, subject to receipt of the above specified messages
@@ -171,7 +175,7 @@ object Node {
      * @param successor The successor actor's reference
      * @param predecessor The predecessor actor's reference
      */
-      def process(predecessorsUpdated: Boolean, movies: Set[Data], m: Int, slotToHash: mutable.Map[Int, Int],
+      def process(predecessorsUpdated: Boolean, movies: Set[Data], replica: Set[Data], m: Int, slotToHash: mutable.Map[Int, Int],
                   hashToRef: mutable.Map[Int, ActorRef[Node.Command]], successor: ActorRef[Node.Command],
                   predecessor: ActorRef[Node.Command], nextSuccessor: ActorRef[Command], nextSuccessorHashValue: Int,
                   successorFailed: Boolean, hashValue: Int = -1): Behavior[Command] = {
@@ -192,7 +196,7 @@ object Node {
                   newHashToRef += (hashValue -> context.self)
                 })
                 context.log.info(s"${context.self.path}(hash=$hashValue)\t:\tInitialized finger tables\t:\tslotToHash = $newSlotToHash\thashToRef = $newHashToRef")
-                process(predecessorsUpdated=true, movies, m, newSlotToHash, newHashToRef, successorNodeRef,
+                process(predecessorsUpdated=true, movies, replica, m, newSlotToHash, newHashToRef, successorNodeRef,
                   predecessorNodeRef, nextSuccessorNodeRef, nextSuccHashValue, successorFailed, hashValue)
               }
 
@@ -233,7 +237,7 @@ object Node {
                   case Failure(_) => ActorStateResponseError
                 }
 
-                process(predecessorsUpdated, movies, m, newSlotToHash, newHashToRef, successorNodeRef, predecessorNodeRef,
+                process(predecessorsUpdated, movies, replica, m, newSlotToHash, newHashToRef, successorNodeRef, predecessorNodeRef,
                   nextSuccessorNodeRef, nextSuccHashValue, successorFailed, hashValue)
               }
 
@@ -308,7 +312,7 @@ object Node {
               */
             case SetPredecessor(newPredecessor) =>
               context.log.info(s"${context.self.path}(hash=$hashValue)\t:\tgot $newPredecessor as my new predecessor. Resetting $predecessor to $newPredecessor")
-              process(predecessorsUpdated, movies, m, slotToHash, hashToRef, successor, newPredecessor, nextSuccessor, nextSuccessorHashValue,
+              process(predecessorsUpdated, movies, replica, m, slotToHash, hashToRef, successor, newPredecessor, nextSuccessor, nextSuccessorHashValue,
                 successorFailed, hashValue)
 
               /*
@@ -319,7 +323,7 @@ object Node {
               context.log.info(s"${context.self.path}(hash=$hashValue)\t:\tgot new finger tables:\tslotToHash = ${slotToHash+(i -> newHash)}\thashToRef = " +
                 s"${hashToRef+(newHash -> newHashRef)}")
               newSuccessor match {
-                case null => process(predecessorsUpdated, movies, m, slotToHash+(i -> newHash), hashToRef+(newHash -> newHashRef),
+                case null => process(predecessorsUpdated, movies, replica, m, slotToHash+(i -> newHash), hashToRef+(newHash -> newHashRef),
                   successor, predecessor, nextSuccessor, nextSuccessorHashValue, successorFailed, hashValue)
                 case _ =>
                   context.log.info(s"${context.self.path}(hash=$hashValue)\t:\tgot $newSuccessor as my new successor. Resetting successor " +
@@ -327,15 +331,12 @@ object Node {
                   context.log.info(s"${context.self.path}(hash=$hashValue)\t:\tupdating my own next successor ptr")
                   newSuccessor ! GetNextSuccessor(context.self)
 
-//                  context.log.info(s"${context.self.path}(hash=$hashValue)\t:\ttelling my predecessor $predecessor to update its next successor")
-//                  predecessor ! NextSuccessor(context.self, newSuccessor)
-
                   context.log.info(s"${context.self.path}(hash=$hashValue)\t:\tUnwatching old successor $successor and " +
                     s"watching new successor $newSuccessor")
                   context.unwatch(successor)
                   context.watch(newSuccessor)
 
-                  process(predecessorsUpdated, movies, m, slotToHash+(i -> newHash), hashToRef+(newHash -> newHashRef),
+                  process(predecessorsUpdated, movies, replica, m, slotToHash+(i -> newHash), hashToRef+(newHash -> newHashRef),
                     newSuccessor, predecessor, nextSuccessor, nextSuccessorHashValue, successorFailed, hashValue)
               }
 
@@ -376,7 +377,7 @@ object Node {
             case StoreData(data, id, srcRouteRef) =>
               context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tGot request to store data with key $id")
               srcRouteRef ! DataStorageResponseSuccess(s"Movie '${data.name}' uploaded successfully")
-              process(predecessorsUpdated, movies+data, m, slotToHash, hashToRef, successor, predecessor, nextSuccessor,
+              process(predecessorsUpdated, movies+data, replica, m, slotToHash, hashToRef, successor, predecessor, nextSuccessor,
                 nextSuccessorHashValue, successorFailed, hashValue)
 
               /*
@@ -411,16 +412,31 @@ object Node {
               */
             case GetData(name, id, srcRouteRef) =>
               context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tgot request to search for data key $id stored with me. Searching...")
-              val data = movies.find(_.name == name)
+              val data = if (movies.exists(_.name == name)) movies.find(_.name == name)
+              else replica.find(_.name == name)
+
               data match {
                 case None =>
                   context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tRequested movie '$name' could not be found")
-                  srcRouteRef ! DataResponseFailed(s"Could not find movie '$name'")
+                  srcRouteRef ! DataResponseFailed(s"Could not find movie '$name'. 404!")
                 case _ =>
                   context.log.info(s"${context.self.path}\thash=($hashValue)\t:\tFound movie '$name' with me")
                   srcRouteRef ! DataResponseSuccess(data)
               }
               Behaviors.same
+
+            case GetMovies(replyTo, newNodeHash) =>
+//              context.log.info(s"${context.self.path}(hash=$hashValue)\t:\t$replyTo has asked me to sent movies it owns.")
+              val newNodeMovies = getPredecessorMovies(movies, newNodeHash, m)
+//              context.log.info(s"${context.self.path}(hash=$hashValue)\t:\tSending movies [${newNodeMovies.mkString(", ")}] to $replyTo.")
+              replyTo ! TakeMovies(newNodeMovies)
+              process(predecessorsUpdated, getOnlyMyOwnMovies(movies, newNodeHash, hashValue, m), replica, m, slotToHash, hashToRef, successor, predecessor,
+                nextSuccessor, nextSuccessorHashValue, successorFailed, hashValue)
+
+            case TakeMovies(myMovies) =>
+//              context.log.info(s"${context.self.path}(hash=$hashValue)\t:\tGot the following movies:[${movies.mkString(", ")}].")
+              process(predecessorsUpdated, movies++myMovies, replica, m, slotToHash, hashToRef, successor, predecessor, nextSuccessor, nextSuccessorHashValue,
+                successorFailed, hashValue)
 
               /*
               * The actor is requested to provide the set of all movies it has
@@ -428,6 +444,18 @@ object Node {
             case GetAllData(replyTo) =>
               replyTo ! AllData(movies)
               Behaviors.same
+
+            case SendReplica =>
+              if (predecessor != null) {
+                predecessor ! StoreReplicaSet(movies)
+              }
+              Behaviors.same
+
+            case StoreReplicaSet(successorMovies) =>
+              /*context.log.info(s"${context.self.path}(hash=$hashValue)\t:\t$successor sent me the following replica set of movies - " +
+                s"[${successorMovies.mkString(" ")}]")*/
+              process(predecessorsUpdated, movies++successorMovies, replica, m, slotToHash, hashToRef, successor, predecessor,
+                nextSuccessor, nextSuccessorHashValue, successorFailed, hashValue)
 
               /*
               * The actor is requested to find the successor for a given key as a result of a new node joining the ring
@@ -480,7 +508,7 @@ object Node {
                 context.log.info(s"${context.self.path}(hash=$hashValue)\t:\t(i = $i) => " +
                   s"(fingerNode = $newSuccessor\t;\thash = $newSuccessorHashValue)\t;\tPredecessor = $predecessor")
                 successor ! FindSuccessor(i+1, ((hashValue+Math.pow(2, i+1).round) % Math.pow(2, m)).toInt, successor, context.self, hashValue)
-                process(predecessorsUpdated, movies, m, slotToHash+(i->newSuccessorHashValue),
+                process(predecessorsUpdated, movies, replica, m, slotToHash+(i->newSuccessorHashValue),
                   hashToRef+(newSuccessorHashValue->newSuccessor), successor, predecessor, nextSuccessor, nextSuccessorHashValue,
                   successorFailed, hashValue)
               }
@@ -501,13 +529,11 @@ object Node {
               Behaviors.same
 
             case NextSuccessor(succRef, succSuccRef, succSuccHashValue) =>
-              context.log.info(s"${context.self.path}(hash=$hashValue)$succRef sent me $succSuccRef as my next successor")
-              process(predecessorsUpdated, movies, m, slotToHash, hashToRef, successor, predecessor, succSuccRef, succSuccHashValue,
+              process(predecessorsUpdated, movies, replica, m, slotToHash, hashToRef, successor, predecessor, succSuccRef, succSuccHashValue,
                 successorFailed, hashValue)
 
             case UpdatePredecessorWithNextSuccessorPointers =>
               if (predecessor != null && slotToHash.nonEmpty) {
-                context.log.info(s"${context.self.path}(hash=$hashValue) \t\t\t\tnow my predecessor is \t\t\t $predecessor")
                 predecessor ! NextSuccessor(context.self, hashToRef(slotToHash(0)), slotToHash(0))
               }
               Behaviors.same
@@ -534,10 +560,10 @@ object Node {
                 successor ! FindNewFinger(i+1, ((hashValue+Math.pow(2, i+1))%Math.pow(2, m)).toInt, failedNodeHash, context.self, hashValue)
                 if (i == 0) {
                    /* Finger 0, start finger tables from scratch */
-                  process(predecessorsUpdated, movies, m, mutable.Map(i->fingerHash), mutable.Map(fingerHash->finger), successor, predecessor,
+                  process(predecessorsUpdated, movies, replica, m, mutable.Map(i->fingerHash), mutable.Map(fingerHash->finger), successor, predecessor,
                     nextSuccessor, nextSuccessorHashValue, successorFailed, hashValue)
                 } else
-                  process(predecessorsUpdated, movies, m, slotToHash+(i->fingerHash), hashToRef+(fingerHash->finger), successor, predecessor,
+                  process(predecessorsUpdated, movies, replica, m, slotToHash+(i->fingerHash), hashToRef+(fingerHash->finger), successor, predecessor,
                     nextSuccessor, nextSuccessorHashValue, successorFailed, hashValue)
               }
               else {
@@ -546,7 +572,7 @@ object Node {
                 context.log.info(s"${context.self.path}(hash=$hashValue)\t:\tslotToHash - $slotToHash ; hashToRef - $hashToRef")
                 context.log.info(s"${context.self.path}(hash=$hashValue)\t:\tTelling $successor to reconstruct its finger tables")
                 successor ! ReconstructFingerTable(context.self, failedNodeHash)
-                process(predecessorsUpdated, movies, m, slotToHash, hashToRef, successor, predecessor, nextSuccessor, nextSuccessorHashValue,
+                process(predecessorsUpdated, movies, replica, m, slotToHash, hashToRef, successor, predecessor, nextSuccessor, nextSuccessorHashValue,
                   successorFailed, hashValue)
               }
 
@@ -555,13 +581,13 @@ object Node {
                 s"because of failure of $failedNodeHash")
               if (successorFailed) {
                 context.log.info(s"${context.self.path}(hash=$hashValue)\t:\tI have already reconstructed my finger table")
-                process(predecessorsUpdated, movies, m, slotToHash, hashToRef, successor, predecessor, nextSuccessor, nextSuccessorHashValue,
+                process(predecessorsUpdated, movies, replica, m, slotToHash, hashToRef, successor, predecessor, nextSuccessor, nextSuccessorHashValue,
                   successorFailed=false, hashValue)
               }
               else {
                 requestingNodeRef ! NextSuccessor(context.self, successor, slotToHash(0))
                 successor ! FindNewFinger(0, ((hashValue + 1) % Math.pow(2, m)).toInt, failedNodeHash, context.self, hashValue)
-                process(predecessorsUpdated, movies, m, slotToHash, hashToRef, successor, requestingNodeRef,
+                process(predecessorsUpdated, movies, replica, m, slotToHash, hashToRef, successor, requestingNodeRef,
                   nextSuccessor, nextSuccessorHashValue, successorFailed, hashValue)
               }
 
@@ -606,7 +632,9 @@ object Node {
               }
               else {
                 context.log.info(s"${context.self.path}(hash=$hashValue)\t:\tFinished telling all my predecessors to update their finger tables")
-                process(predecessorsUpdated=true, movies, m, slotToHash, hashToRef, successor, predecessor, nextSuccessor,
+                context.log.info(s"${context.self.path}(hash=$hashValue)\t:\tAsking $successor for my movies")
+                successor ! GetMovies(context.self, hashValue)
+                process(predecessorsUpdated=true, movies, replica, m, slotToHash, hashToRef, successor, predecessor, nextSuccessor,
                   nextSuccessorHashValue, successorFailed, hashValue)
               }
 
@@ -628,13 +656,13 @@ object Node {
                 context.log.info(s"${context.self.path}(hash=$hashValue)\t:\tI am the only node left in the ring.")
                 val newSlotToHash = resetSlotToHash(hashValue, mutable.Map.empty, m, acc=0)
                 val newHashToRef = mutable.Map[Int, ActorRef[Command]](hashValue -> context.self)
-                process(predecessorsUpdated, movies, m, newSlotToHash, newHashToRef, context.self, context.self, context.self,
+                process(predecessorsUpdated, movies, replica, m, newSlotToHash, newHashToRef, context.self, context.self, context.self,
                   nextSuccessorHashValue=hashValue, successorFailed=false, hashValue)
               }
               else {
                 /* There is at least 1 other node in the ring, so fill up finger 0 as next successor and start reconstruction */
                 nextSuccessor ! FindNewFinger(0, ((hashValue+1)%Math.pow(2, m)).toInt, slotToHash(0), context.self, hashValue)
-                process(predecessorsUpdated, movies, m, slotToHash+(0->nextSuccessorHashValue), hashToRef+(nextSuccessorHashValue->nextSuccessor),
+                process(predecessorsUpdated, movies, replica, m, slotToHash+(0->nextSuccessorHashValue), hashToRef+(nextSuccessorHashValue->nextSuccessor),
                   nextSuccessor, predecessor, nextSuccessor=null, nextSuccessorHashValue = -1, successorFailed=true, hashValue)
               }
           }
@@ -739,6 +767,12 @@ object Node {
       }
       Behaviors.same
     }
+
+    def getPredecessorMovies(movies: Set[Data], newNodeHash: Int, m: Int): Set[Data] =
+      movies.filter(movie => getSignedHash(m, movie.name) <= newNodeHash)
+
+    def getOnlyMyOwnMovies(movies: Set[Data], predecessorHash: Int, myHash: Int, m: Int): Set[Data] =
+      movies.filter(movie => getSignedHash(m, movie.name) > predecessorHash && getSignedHash(m, movie.name) <= myHash)
 
     /**
      * This function will find the most immediately preceding node of the requested key using this actor's finger table maps
@@ -1003,7 +1037,8 @@ object Node {
 
     Behaviors.withTimers { timer =>
       timer.startTimerAtFixedRate(UpdatePredecessorWithNextSuccessorPointers, 3.seconds)
-      process(predecessorsUpdated = false, Set.empty, m, slotToHash, hashToRef, successor, predecessor, nextSuccessor,
+      timer.startTimerAtFixedRate(SendReplica, replicationPeriod.seconds)
+      process(predecessorsUpdated = false, Set.empty, Set.empty, m, slotToHash, hashToRef, successor, predecessor, nextSuccessor,
         nextSuccessorHashValue, successorFailed=false)
     }
   }

@@ -44,7 +44,7 @@ object HttpServer {
       if (topology.equals("CHORD")) {
         val m = config.getInt("app.CHORD.NUMBER_OF_FINGERS")
 
-        val parentActor = context.spawn(Parent(m, n, dumpPeriod, nodeJoinFailPeriod), "Parent")
+        val parentActor = context.spawn(Parent(m, n, dumpPeriod, nodeJoinFailPeriod, replicationPeriod), "Parent")
         context.log.info(s"${context.self.path}\t:\tSpawned parent actor - $parentActor")
 
         val userRoutes = new UserRoutes(parentActor)(context.system)

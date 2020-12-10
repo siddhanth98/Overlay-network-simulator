@@ -31,17 +31,17 @@ object Parent {
   final case object ObserveFingerTable extends Command
   final case class ActorName(name: String) extends Command
   final case class DumpActorState(replyTo: ActorRef[Command]) extends Command with Node.Command
-  final case object TerminateOrJoinNode extends Command
+  final case class TerminateOrJoinNode(replicationPeriod: Int) extends Command
 
   def md5(s: String): Array[Byte] = MessageDigest.getInstance("MD5").digest(s.getBytes)
 
   def getSignedHash(m: Int, s: String): Int = (UnsignedInt(ByteBuffer.wrap(md5(s)).getInt).bigIntegerValue % Math.pow(2, m).toInt).intValue()
 
-  def apply(m: Int, n: Int, dumpPeriod: Int, nodeJoinFailurePeriod: Int): Behavior[Command] =
+  def apply(m: Int, n: Int, dumpPeriod: Int, nodeJoinFailurePeriod: Int, replicationPeriod: Int): Behavior[Command] =
     Behaviors.setup[Command] (context => Behaviors.withTimers { timer =>
-      val slotToAddress = spawnServers(m, n, context)
+      val slotToAddress = spawnServers(m, n, context, replicationPeriod)
       timer.startTimerAtFixedRate(DumpActorState(context.self), dumpPeriod.seconds)
-      timer.startTimerAtFixedRate(TerminateOrJoinNode, nodeJoinFailurePeriod.seconds)
+      timer.startTimerAtFixedRate(TerminateOrJoinNode(replicationPeriod), nodeJoinFailurePeriod.seconds)
       context.log.info(s"${context.self.path}\t:\tSpawned actor hashes => [${slotToAddress.keySet.toList.mkString(", ")}]")
       update(m, n, slotToAddress, slotToAddress.keySet.toList, List.empty, nodeJoinFlag=true)
     })
@@ -61,10 +61,10 @@ object Parent {
           /*
           * This message is sent by the parent actor to itself to either terminate / create a random node in the chord ring
           */
-        case (context, TerminateOrJoinNode) =>
+        case (context, TerminateOrJoinNode(replicationPeriod)) =>
           if (nodeJoinFlag) {
             context.log.info(s"${context.self.path}\t:\tCreating new node in the chord ring...")
-            val newSlotToAddress = spawnNewNode(slotToAddress, context, m)
+            val newSlotToAddress = spawnNewNode(slotToAddress, context, m, replicationPeriod)
             update(m, n, newSlotToAddress, newSlotToAddress.keySet.toList, actorStates, nodeJoinFlag=false)
           }
           else {
@@ -94,18 +94,6 @@ object Parent {
             update(m, n, slotToAddress, actorHashesList, List.empty, nodeJoinFlag)
           }
           else update(m, n, slotToAddress, actorHashesList, state :: actorStates, nodeJoinFlag)
-
-        case (context, Node.DataStorageResponseSuccess(d)) =>
-          context.log.info(s"${context.self.path}\t:\tGot response $d")
-          Behaviors.same
-
-        case (context, Node.DataResponseSuccess(data)) =>
-          context.log.info(s"${context.self.path}\t:\tdata found is:\t${data.get}")
-          Behaviors.same
-
-        case (context, Node.DataResponseFailed(d)) =>
-          context.log.info(s"${context.self.path}\t:\tgot response {$d} ")
-          Behaviors.same
 
           /*
           * This actor has received a request for storing some data(movie). It will find a random node in the ring and forward
@@ -147,12 +135,12 @@ object Parent {
    * @param n The maximum number of nodes in the ring
    * @param context Execution context of this actor
    */
-  def spawnServers(m: Int, n: Int, context: ActorContext[Command]): mutable.Map[Int, ActorRef[Node.Command]] = {
+  def spawnServers(m: Int, n: Int, context: ActorContext[Command], replicationPeriod: Int): mutable.Map[Int, ActorRef[Node.Command]] = {
     val newSlotToAddress = mutable.Map[Int, ActorRef[Node.Command]]()
 
     (1 to n).foreach(_ => {
       val serverNode = context.spawn(Node(m, mutable.Map[Int, Int](), mutable.Map[Int, ActorRef[Node.Command]](),
-        null, null, null, -1), "Server" + scala.util.Random.nextInt(100000).toString)
+        null, null, null, -1, replicationPeriod), "Server" + scala.util.Random.nextInt(100000).toString)
       val serverNodeHash = getSignedHash(m, serverNode.path.toString)
 
       if (!newSlotToAddress.contains(serverNodeHash)) {
@@ -183,9 +171,10 @@ object Parent {
   }
 
   def spawnNewNode(slotToAddress: mutable.Map[Int, ActorRef[Node.Command]], context: ActorContext[Command],
-                   m: Int):
+                   m: Int, replicationPeriod: Int):
   mutable.Map[Int, ActorRef[Node.Command]] = {
-    val newNode = context.spawn(Node(m, mutable.Map[Int, Int](), mutable.Map[Int, ActorRef[Node.Command]](), null, null, null, -1),
+    val newNode = context.spawn(Node(m, mutable.Map[Int, Int](), mutable.Map[Int, ActorRef[Node.Command]](), null, null, null, -1,
+      replicationPeriod),
       s"Server${scala.util.Random.nextInt(100000)}")
     val newNodeHash = getSignedHash(m, newNode.path.toString)
     if (slotToAddress.contains(newNodeHash)) {

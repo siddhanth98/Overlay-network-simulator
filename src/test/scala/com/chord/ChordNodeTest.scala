@@ -26,11 +26,12 @@ class ChordNodeTest extends ScalaTestWithActorTestKit with AnyWordSpecLike {
   val config: Config =
     ConfigFactory.parseFile(new File("src/main/resources/configuration/test.conf"))
   val m: Int = config.getInt("app.CHORD.NUMBER_OF_FINGERS")
+  val replicationPeriod: Int = config.getInt("app.REPLICATION_PERIOD")
 
   "First Chord Node" must {
     "have all finger table entries reference itself" in {
       val nodeProbe = createTestProbe[ActorStateResponse]()
-      val node = spawn(Node(m, mutable.Map.empty, mutable.Map.empty, null, null, null, -1), "TestChordNode")
+      val node = spawn(Node(m, mutable.Map.empty, mutable.Map.empty, null, null, null, -1, replicationPeriod), "TestChordNode")
       val nodeHash = getSignedHash(m, node.path.toString)
       node ! Join(node, node, null, -1, nodeHash)
       node ! GetActorState(nodeProbe.ref)
@@ -48,8 +49,8 @@ class ChordNodeTest extends ScalaTestWithActorTestKit with AnyWordSpecLike {
     "reference each other as successor and predecessor" in {
       val nodeProbe = createTestProbe[ActorStateResponse]()
 
-      val node1 = spawn(Node(m, mutable.Map.empty, mutable.Map.empty, null, null, null, -1), "node1")
-      val node2 = spawn(Node(m, mutable.Map.empty, mutable.Map.empty, null, null, null, -1), "node2")
+      val node1 = spawn(Node(m, mutable.Map.empty, mutable.Map.empty, null, null, null, -1, replicationPeriod), "node1")
+      val node2 = spawn(Node(m, mutable.Map.empty, mutable.Map.empty, null, null, null, -1, replicationPeriod), "node2")
 
       node1 ! Join(node1, node1, null, -1, getSignedHash(m, node1.path.toString))
       node2 ! Join(node1, node1, null, -1, getSignedHash(m, node2.path.toString))

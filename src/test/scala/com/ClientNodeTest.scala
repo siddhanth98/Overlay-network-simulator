@@ -1,15 +1,17 @@
-package com.chord
+package com
 
-import java.io.File
 import akka.actor.testkit.typed.scaladsl.{ScalaTestWithActorTestKit, TestProbe}
 import akka.actor.typed.ActorRef
-import com.simulation.Aggregator.Aggregate
+import com.chord.ChordNodeTest
 import com.client.HttpClient
 import com.client.HttpClient.{FinishSimulation, GetMovie, PostMovie}
 import com.server.HttpServer
+import com.simulation.Aggregator.Aggregate
 import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.wordspec.AnyWordSpecLike
 import org.slf4j.{Logger, LoggerFactory}
+
+import java.io.File
 
 /**
  * This class is responsible for testing the client server request response cycle of the simulation.
@@ -36,7 +38,7 @@ class ClientNodeTest extends ScalaTestWithActorTestKit with AnyWordSpecLike {
     Thread.sleep(1000)
     client ! PostMovie(movie1Name, movie1Size, movie1Genre)
     client ! PostMovie(movie2Name, movie2Size, movie2Genre)
-    Thread.sleep(2000)
+    Thread.sleep(5000)
   }
 
   "Chord server" must {

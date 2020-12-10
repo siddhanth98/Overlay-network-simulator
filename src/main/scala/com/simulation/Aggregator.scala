@@ -48,9 +48,11 @@ object Aggregator {
    */
   def writeClientDataToDisk(clientData: Map[ActorRef[HttpClient.Command], List[Int]]): Unit = {
     val outputFile = new FileWriter(new File("src/main/resources/outputs/client_data.txt"), true)
+    outputFile.append("---------------------------------------------------------------------------------------------\n\n")
     clientData.keySet.foreach(client =>
       outputFile.append(s"\nClient - $client\nSuccess Count = ${clientData(client).head}\tFailure Count = ${clientData(client)(1)}\n\n")
     )
+    outputFile.append("---------------------------------------------------------------------------------------------\n\n")
     outputFile.close()
   }
 

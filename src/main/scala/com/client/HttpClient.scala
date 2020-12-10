@@ -63,12 +63,13 @@ object HttpClient {
         context.log.info(s"${context.self.path}\t:\tSending get request for obtaining movie => (name=$name)")
         sendRequest(context, makeHttpGetRequest(name))
           .foreach(res => {
-            if (res.contains("data") && counterActive) {
-              logger.info(s"${context.self.path}\t:\tdata successfully found - $res")
-              counterActor ! Counter.Success
-            } else if (counterActive) {
-              logger.info(s"${context.self.path}\t:\tdata not found - $res")
+            if (res.contains("404") || res.contains("error")) {
+              logger.info(s"${context.self.path}\t:\tMovie $name could not be found")
               counterActor ! Counter.Failure
+            }
+            else {
+              logger.info(s"${context.self.path}\t:\tMovie $name successfully found - $res")
+              counterActor ! Counter.Success
             }
           })
         Behaviors.same
