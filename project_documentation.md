@@ -168,7 +168,7 @@ thus increasing the replicability as the movie is replicated both within a shard
 
 ### Docker Image
 - Docker image for the network simulator can be pulled using the following command:
-  `docker pull p1998/my-overlay-simulator`
+  `docker pull p1998/my-overlay-simulator:1.0`
 
 - The image is configured to use CHORD. The following are to be done to run the simulations:
   1. In one terminal start the container using `docker run image_id_hash`. This will start one shard region for the chord network and the server will be exposed on port 8080 inside the container.
