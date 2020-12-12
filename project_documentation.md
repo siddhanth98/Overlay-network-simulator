@@ -180,3 +180,8 @@ thus increasing the replicability as the movie is replicated both within a shard
 
 ### AWS EC2 Deployment
 - Aws link : https://youtu.be/82Bon_yYhFs
+
+### Tests for CAN
+- 2 tests testing the CAN functionalities can be found in the `com.can.CanNodeTest.scala` class in the tests directory.
+
+- 3 tests mentioned in the previous documentation now test both the CAN and CHORD client and server functionality as a whole, which can be configured by changing the `app.TOPOLOGY` parameter in the `src/main/resources/configuration/test.conf` file.
