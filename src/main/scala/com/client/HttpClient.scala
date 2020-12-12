@@ -63,7 +63,7 @@ object HttpClient {
         context.log.info(s"${context.self.path}\t:\tSending get request for obtaining movie => (name=$name)")
         sendRequest(context, makeHttpGetRequest(name))
           .foreach(res => {
-            if (res.contains("404") || res.contains("error")) {
+            if (res.contains("404") || res.contains("error") || res.contains("The server was not able to produce a timely response to your request.")) {
               logger.info(s"${context.self.path}\t:\tMovie $name could not be found")
               counterActor ! Counter.Failure
             }
