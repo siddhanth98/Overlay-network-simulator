@@ -1,14 +1,14 @@
 ## Fault tolerance and replication management in overlay networks
 - This documentation picks up after the previous [documentation](documentation.md) which explains how the **chord** overlay network is implemented to handle initial node joins and routing of data storage / retrieval requests.
 
-- This documentation mainly explains the implementation of the **Content Addressable Network** and how both *CAN* and *Chord* handle random node failures as well as joins happening dynamically in the network. Other sections highlight the main programs to be run with relevant configurations, use of the *cluster sharding* deployment model, docker configuration and running the simulator in AWS EC2 instance.<br><br>
+- This documentation mainly explains the implementation of the **Content Addressable Network** and how both *CAN* and *Chord* handle random node failures as well as joins happening dynamically in the network. Other sections highlight the main programs to be run with relevant configurations, use of the *cluster sharding* deployment model, docker configuration and running the simulator in AWS EC2 instance.
 
 
 ### Running the programs
 - Similar to the previous one, there are 2 main programs to be run - `com.server.HttpServer` and `com.simulation.Main`.
 
 - They can be run from the project root directory using -
-  `sbt "runMain com.server.HttpServer"` and `sbt "runMain com.simulation.Main"`. The server program can take a while to set up the whole CHORD/CAN topology, depending on the `app.NUMBER_OF_NODES` parameter in the `src/main/resources/configuration/serverconfig.conf` file. The client simulation program should only be run after the overlay network is fully set up.  <br><br>
+  `sbt "runMain com.server.HttpServer"` and `sbt "runMain com.simulation.Main"`. The server program can take a while to set up the whole CHORD/CAN topology, depending on the `app.NUMBER_OF_NODES` parameter in the `src/main/resources/configuration/serverconfig.conf` file. The client simulation program should only be run after the overlay network is fully set up.
 
 
 ### Content Addressable Network
@@ -31,7 +31,7 @@
 - Every node is scheduled to send the following messages periodically:
   1. **NotifyNeighboursWithNeighbourMap** -  This message is used to keep adjacent nodes updated with this node's current neighbor set, to prevent a non-neighboring node from receiving a *takeover* message from an adjacent node when this node fails, which can happen when neighboring nodes may split or themselves fail and other nodes occupy their zones. This results in inconsistencies when a node receives a *takeover* message for anothe node which is no longer its neighbor.
 
-  2.  **Replicate** - As explained in the replica management section, this message is to periodically update neighboring nodes with all movies this node currently stores.<br><br>
+  2.  **Replicate** - As explained in the replica management section, this message is to periodically update neighboring nodes with all movies this node currently stores.
 
 ### Failures in CAN
 - Failure of a node actor is detected using the **death watch** mechanism provided by Akka.
@@ -50,9 +50,9 @@
 
   4. When a node receives at least one *TakeoverNack* message, it will cancel its own takeover attempt.
 
-  5.  As part of taking over another node's zone, a node first checks whether merging the failed node's coordinates with it's own forms a perfect rectangle or not. If it does form a perfect rectangle then takeover proceeds as explained above. Otherwise it will find one of it's currently active neighbors which does form a perfect rectangle with this node (**not the failed node but the node about to takeover**) and it will tell that node to takeover its (**not failed node's**) zone i.e. merge this node's coordinates with it's own. Then this node will takeover the failed node by modifying its coordinates to those of the failed node's, instead of *merging* and expanding them. The main reason for this kind of implementation is that non-rectangular zones will have incorrect start and end coordinates that collide with an adjacent node's coordinates and can result in improper querying of data present in those zones.<br><br>
+  5.  As part of taking over another node's zone, a node first checks whether merging the failed node's coordinates with it's own forms a perfect rectangle or not. If it does form a perfect rectangle then takeover proceeds as explained above. Otherwise it will find one of it's currently active neighbors which does form a perfect rectangle with this node (**not the failed node but the node about to takeover**) and it will tell that node to takeover its (**not failed node's**) zone i.e. merge this node's coordinates with it's own. Then this node will takeover the failed node by modifying its coordinates to those of the failed node's, instead of *merging* and expanding them. The main reason for this kind of implementation is that non-rectangular zones will have incorrect start and end coordinates that collide with an adjacent node's coordinates and can result in improper querying of data present in those zones.
 
-- The node joins / failures are randomized by the parent actor which will spawn / stop random nodes in the CAN periodically as specified by the `app.NODE_JOIN_FAILURE_PERDIOD` parameter in the configuration file, which defines the minimum time in seconds between a join and a failure.<br><br>
+- The node joins / failures are randomized by the parent actor which will spawn / stop random nodes in the CAN periodically as specified by the `app.NODE_JOIN_FAILURE_PERDIOD` parameter in the configuration file, which defines the minimum time in seconds between a join and a failure.
 
 ### Replication management in CAN
 - As part of storing replica of movies to provide some level of fault tolerance in the network, every node periodically updates its neighbors with all movies it currently has.
@@ -63,7 +63,7 @@
 
 - As part of responding to a query request for a movie, a node checks both its own set of movies and the corresponding entry in its replica map to check if the movie replica exists or not, to avoid further routing of requests to neighboring zones. Only if a movie does not exist in either of the sets, will the request be routed to the nearest neighbor.
 
-- This replication is configurable using a parameter named `app.REPLICATION_PERIOD` in the `src/main/resources/configuration/serverconfig.conf` file. This parameter determines the scheduling period of the *Replicate* message in seconds, which is used by every node to send their own movies as replica to all neighbors.<br><br>
+- This replication is configurable using a parameter named `app.REPLICATION_PERIOD` in the `src/main/resources/configuration/serverconfig.conf` file. This parameter determines the scheduling period of the *Replicate* message in seconds, which is used by every node to send their own movies as replica to all neighbors.
 
 ### Data storage / retrieval
 - When a movie is to be stored in the CAN, it's name is first hashed using the MD5 hash function to get the coordinates for a point in the CAN coordinate system.
@@ -72,7 +72,7 @@
 
 - When a node receives a request for either storing / retrieving a movie, it hashes the movie name and checks if the hashed point is present in it's zone or not. If it is, then it either stores the movie in its set of movies, or searches its set to check if the movie exists or not and returns the movie details if present. If the point does not lie in it's zone, then it finds the nearest neighbor to that hashed point by computing the Euclidean distance between the point and a random point in the neighboring point's zone, and forwards the request to the corresponding node owning that zone.
 
-- The reason for using a random point is to avoid the scenario where a point can be incorrectly mapped to a zone based on its distance from the centermost point in that zone. This can happen because a point can lie near the edge of a zone but maybe nearer to the centermost point of an adjacent zone (which would only partially overlap with this zone), instead of the centermost point of its own zone. Considering a random point reduces the chances of this happening, because a point will eventually be mapped to the correct zone.<br><br>
+- The reason for using a random point is to avoid the scenario where a point can be incorrectly mapped to a zone based on its distance from the centermost point in that zone. This can happen because a point can lie near the edge of a zone but maybe nearer to the centermost point of an adjacent zone (which would only partially overlap with this zone), instead of the centermost point of its own zone. Considering a random point reduces the chances of this happening, because a point will eventually be mapped to the correct zone.
 
 - The CAN parent actor periodically pings every node to get their states, each of which has the following:
   1. 2d-coordinates of the node
@@ -102,14 +102,14 @@
 
   6. This process repeats through all nodes in the ring as they reconstruct their finger tables and in the end the detecting node will be pinged by its predecessor telling it to reconstruct. Here the detecting node uses a flag which it set when it detected the failure to know that its reconstruction is already completed and doesn't need to be performed again. **Note** that at any time only 1 node is stopped, so it cannot happen  that reconstruction of finger tables of multiple nodes happen concurrently in the ring as a result of multiple nodes failing at the same time.
 
-- In the end, every node will have reconstructed its finger tables to reflect the failure of the node in the chord ring, so that future requests are routed properly.<br><br>
+- In the end, every node will have reconstructed its finger tables to reflect the failure of the node in the chord ring, so that future requests are routed properly.
 
 ### Replication management in chord
 - Similar to how it is done in CAN, every node in the chord ring is programmed to periodically send its own set of movies to its predecessor node which will store in its set of movies, to provide a level of fault tolerance in the network.
 
 - As part of the fault tolerance, when a movie query request arrives at a node, it will check if its own set of movies, which include both its own movies as well it's successor node's movies, to avoid routing the request further in the chord ring.
 
-- This periodic replication time is configurable from the `app.REPLICATION_PERIOD` value, which specifies the minimum time in seconds between 2 replication messages by a single node.<br><br>
+- This periodic replication time is configurable from the `app.REPLICATION_PERIOD` value, which specifies the minimum time in seconds between 2 replication messages by a single node.
 
 ### Simulations
 - The simulation actor system has an aggregator actor which collects all successful (movie found) and failed (movie not found) client requests and writes the data to disk in `src/main/resources/outputs/aggregate.txt`, as well as the number of successful and failed requests made by each client in `src/main/resources/outputs/client_data.txt`.
@@ -164,7 +164,7 @@ thus increasing the replicability as the movie is replicated both within a shard
 
 - Request for finding the same movie in the 2nd shard region will be like:
   `curl http://localhost:8080/movies/2/getMovie/avatar`.
-  <br><br>
+  
 
 ### Docker Image
 - Docker image for the network simulator can be pulled using the following command:
@@ -176,7 +176,7 @@ thus increasing the replicability as the movie is replicated both within a shard
   2. In another terminal, enter the container filesystem in interactive mode using `docker exec -it container_id_hash /bin/sh`. Then run `sbt "runMain com.simulation.Main"`. This will start the client simulation program, and concurrently the chord network starting to setup and subsequent requests and responses can be observed until the simulation ends after 100 seconds.
 
 - The above steps can be seen to execute in the EC2 ssh terminal in the video linked below.
-  <br><br>
+  
 
 ### AWS EC2 Deployment
 - Aws link : https://youtu.be/82Bon_yYhFs
