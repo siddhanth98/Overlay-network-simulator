@@ -8,5 +8,12 @@ Comments:
 +3% for the usage of typed Behaviors model for Akka actors.
 +3% for a documenting your implementation and execution steps.
 
+----
+
+Good work on your simulations. I was particularly impressed with your context watch implementation when it comes to
+managing failure of nodes.
+
+Your grade for the project is 20%.
+
 Abhijeet Mohanty
 
