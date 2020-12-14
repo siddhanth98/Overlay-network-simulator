@@ -1,5 +1,5 @@
 ## Fault tolerance and replication management in overlay networks
-- This documentation picks up after the previous [documentation](chord documentation.md) which explains how the **chord** overlay network is implemented to handle initial node joins and routing of data storage / retrieval requests.
+- This documentation picks up after the previous [documentation](chord_documentation.md) which explains how the **chord** overlay network is implemented to handle initial node joins and routing of data storage / retrieval requests.
 
 - This documentation mainly explains the implementation of the **Content Addressable Network** and how both *CAN* and *Chord* handle random node failures as well as joins happening dynamically in the network. Other sections highlight the main programs to be run with relevant configurations, use of the *cluster sharding* deployment model, docker configuration and running the simulator in AWS EC2 instance.
 
@@ -94,7 +94,7 @@
 
   2. Otherwise there is at least one other node still active in the ring. The failure detecting node resets its successor pointer to point to its next successor and will initialize its finger table reconstruction process by sending a new *FindSuccessor* message to its new successor. This message includes the hash of the failed node, so as to ignore sending any message to that failed node as part of the reconstruction process.
 
-  3. This findSuccessor mechanism is similar to the one explained in the previous [documentation](chord documentation.md), except that the failed node will be ignored in the ring using the failed node hash value passed around. Specifically, this failed node's hash value is used while finding the closest preceding node for the given hash. In this case the closest preceding node is the node which more closely precedes the given hash and one which is not the failed node.
+  3. This findSuccessor mechanism is similar to the one explained in the previous [documentation](chord_documentation.md), except that the failed node will be ignored in the ring using the failed node hash value passed around. Specifically, this failed node's hash value is used while finding the closest preceding node for the given hash. In this case the closest preceding node is the node which more closely precedes the given hash and one which is not the failed node.
 
   4. When the detecting node finishes reconstructing its entire finger table, it will let its new successor know that its predecessor should be modified to point to this detecting node, and also tells the new successor to reconstruct its own finger table using the same failed node hash.
 
